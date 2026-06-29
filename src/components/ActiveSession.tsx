@@ -1,21 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, Check, Plus, Clock, Trash2 } from 'lucide-react'
-import { DEFAULT_SETS, DEFAULT_REPS, isTimed } from '../lib/program'
-import { sessionExercisesToRows } from '../lib/sessionSets'
-import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, addExerciseToWorkoutDay } from '../lib/supabase'
+import { DEFAULT_SETS, DEFAULT_REPS, isTimed, toDateInputValue, dateAtNoon, getPreviousWeekSession, bestSetForExercise, formatBestSetLabel, setRepeatCount } from '../lib/program'
+import { sessionExercisesToRows, countLoggedSets, emptySet } from '../lib/sessionSets'
+import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, addExerciseToWorkoutDay, updateSession } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
+import type {
+  WorkoutDay,
+  WorkoutDayExercise,
+  Exercise,
+  Session,
+  MuscleGroup,
+  SessionExercise,
+  FinishedSession,
+  PersonalRecord,
+  SetInput,
+} from '../types'
 
-function buildSessionExercises(dayExercises, lastSession) {
+function buildSessionExercises(dayExercises: WorkoutDayExercise[], sessions: Session[], workoutDayId: string, logDate: Date): SessionExercise[] {
+  const prevWeekSession = getPreviousWeekSession(sessions, workoutDayId, logDate)
+
   return dayExercises.map(wde => {
-    const ex = wde.exercises || {}
+    const ex = wde.exercises || { id: '', name: 'Unknown', alt_name: null, is_custom: false }
     const name = ex.name || 'Unknown'
     const targetSets = wde.target_sets || DEFAULT_SETS[name] || 3
     const targetReps = wde.target_reps || DEFAULT_REPS[name] || '—'
-
-    const lastSets = lastSession?.session_sets?.filter(s => s.exercise_id === ex.id) || []
-    const lastBest = lastSets.length
-      ? lastSets.reduce((a, b) => (Number(a.weight_kg) || 0) >= (Number(b.weight_kg) || 0) ? a : b)
-      : null
+    const timed = isTimed(targetReps)
+    const lastBest = bestSetForExercise(prevWeekSession, ex.id)
 
     return {
       exerciseId: ex.id,
@@ -25,20 +35,16 @@ function buildSessionExercises(dayExercises, lastSession) {
       targetSets,
       targetReps,
       lastBest,
-      sets: Array.from({ length: targetSets }, (_, i) => ({
-        setNumber: i + 1,
-        weight: lastBest?.weight_kg ? String(lastBest.weight_kg) : '',
-        reps: lastBest?.reps ? String(lastBest.reps) : '',
-        done: false,
-      })),
+      lastWeekLabel: formatBestSetLabel(lastBest, timed),
+      sets: Array.from({ length: targetSets }, (_, i) => emptySet(i + 1, lastBest, timed)),
     }
   })
 }
 
-function mergeSessionExercises(prev, dayExercises, lastSession) {
-  const fromPlan = buildSessionExercises(dayExercises, lastSession)
-  const merged = []
-  const seen = new Set()
+function mergeSessionExercises(prev: SessionExercise[], dayExercises: WorkoutDayExercise[], sessions: Session[], workoutDayId: string, logDate: Date): SessionExercise[] {
+  const fromPlan = buildSessionExercises(dayExercises, sessions, workoutDayId, logDate)
+  const merged: SessionExercise[] = []
+  const seen = new Set<string>()
 
   for (const planEx of fromPlan) {
     const existing = prev.find(p => p.exerciseId === planEx.exerciseId)
@@ -56,28 +62,47 @@ function mergeSessionExercises(prev, dayExercises, lastSession) {
   return merged
 }
 
-export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, onBack, onFinished, onExerciseAdded, onPlanChanged }) {
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+export interface ActiveSessionProps {
+  workoutDay: WorkoutDay
+  dayExercises: WorkoutDayExercise[]
+  exercises: Exercise[]
+  sessions: Session[]
+  muscleGroups: MuscleGroup[]
+  logDate: Date | null
+  onBack: () => void
+  onFinished: (session: FinishedSession) => void
+  onExerciseAdded?: () => Promise<void>
+  onPlanChanged?: () => Promise<void>
+}
+
+export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, onBack, onFinished, onExerciseAdded, onPlanChanged }: ActiveSessionProps) {
   const color = workoutDay.color
+  const initialLogDate = logDate || new Date()
+  const logDateKey = toDateInputValue(initialLogDate)
   const startRef = useRef(Date.now())
-  const sessionIdRef = useRef(null)
-  const pendingSaveRef = useRef(null)
-  const saveTimerRef = useRef(null)
+  const sessionIdRef = useRef<string | null>(null)
+  const startedAtRef = useRef<string | null>(null)
+  const pendingSaveRef = useRef<SessionExercise[] | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionsRef = useRef(sessions)
   sessionsRef.current = sessions
 
-  const lastSession = sessions
-    .filter(s => s.workout_day_id === workoutDay.id && s.finished_at)
-    .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))[0] || null
+  const [logDateStr, setLogDateStr] = useState(logDateKey)
+  const isBackdated = logDateStr !== toDateInputValue(new Date())
 
-  const [sessionExercises, setSessionExercises] = useState(() =>
-    buildSessionExercises(dayExercises, lastSession)
+  const logDateForHistory = new Date(`${logDateKey}T12:00:00`)
+
+  const [sessionExercises, setSessionExercises] = useState<SessionExercise[]>(() =>
+    buildSessionExercises(dayExercises, sessions, workoutDay.id, logDateForHistory)
   )
-  const [restTimer, setRestTimer] = useState(null)
+  const [restTimer, setRestTimer] = useState<number | null>(null)
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
 
-  const persistSession = useCallback(async (exerciseList) => {
+  const persistSession = useCallback(async (exerciseList: SessionExercise[]) => {
     if (!sessionIdRef.current) {
       pendingSaveRef.current = exerciseList
       return
@@ -92,7 +117,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     }
   }, [])
 
-  const scheduleSave = useCallback((exerciseList, immediate = false) => {
+  const scheduleSave = useCallback((exerciseList: SessionExercise[], immediate = false) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     if (immediate) {
       persistSession(exerciseList)
@@ -102,15 +127,17 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   }, [persistSession])
 
   useEffect(() => {
-    const last = sessionsRef.current
-      .filter(s => s.workout_day_id === workoutDay.id && s.finished_at)
-      .sort((a, b) => new Date(b.started_at) - new Date(a.started_at))[0] || null
-    setSessionExercises(prev => mergeSessionExercises(prev, dayExercises, last))
-  }, [workoutDay.id, dayExercises])
+    const logDateObj = new Date(`${logDateStr}T12:00:00`)
+    setSessionExercises(prev =>
+      mergeSessionExercises(prev, dayExercises, sessionsRef.current, workoutDay.id, logDateObj)
+    )
+  }, [workoutDay.id, dayExercises, logDateStr])
 
   useEffect(() => {
-    createSession(workoutDay.id).then(s => {
+    const startedAt = dateAtNoon(logDateKey)
+    createSession(workoutDay.id, { startedAt }).then(s => {
       sessionIdRef.current = s.id
+      startedAtRef.current = s.started_at
       if (pendingSaveRef.current) {
         persistSession(pendingSaveRef.current)
         pendingSaveRef.current = null
@@ -119,15 +146,27 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [workoutDay.id, persistSession])
+  }, [workoutDay.id, logDateKey, persistSession])
+
+  const handleLogDateChange = async (value: string) => {
+    setLogDateStr(value)
+    if (!sessionIdRef.current) return
+    try {
+      const startedAt = dateAtNoon(value)
+      const updated = await updateSession(sessionIdRef.current, { startedAt })
+      startedAtRef.current = updated.started_at
+    } catch (err) {
+      alert('Could not update date: ' + (err instanceof Error ? err.message : String(err)))
+    }
+  }
 
   useEffect(() => {
     if (restTimer === null || restTimer <= 0) return
-    const t = setTimeout(() => setRestTimer(r => r - 1), 1000)
+    const t = setTimeout(() => setRestTimer(r => (r != null ? r - 1 : null)), 1000)
     return () => clearTimeout(t)
   }, [restTimer])
 
-  const updateSet = (exIdx, setIdx, field, value) => {
+  const updateSet = (exIdx: number, setIdx: number, field: keyof SetInput, value: string | boolean) => {
     setSessionExercises(prev => {
       const next = [...prev]
       const sets = [...next[exIdx].sets]
@@ -138,7 +177,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     })
   }
 
-  const toggleDone = (exIdx, setIdx) => {
+  const toggleDone = (exIdx: number, setIdx: number) => {
     const wasUndone = !sessionExercises[exIdx].sets[setIdx].done
     setSessionExercises(prev => {
       const next = [...prev]
@@ -151,17 +190,17 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     if (wasUndone) setRestTimer(60)
   }
 
-  const addSet = (exIdx) => {
+  const addSet = (exIdx: number) => {
     setSessionExercises(prev => {
       const next = [...prev]
       const sets = next[exIdx].sets
-      next[exIdx] = { ...next[exIdx], sets: [...sets, { setNumber: sets.length + 1, weight: '', reps: '', done: false }] }
+      next[exIdx] = { ...next[exIdx], sets: [...sets, { setNumber: sets.length + 1, weight: '', reps: '', repeat: '1', done: false }] }
       scheduleSave(next, true)
       return next
     })
   }
 
-  const toggleAlt = (exIdx) => {
+  const toggleAlt = (exIdx: number) => {
     setSessionExercises(prev => {
       const next = [...prev]
       next[exIdx] = { ...next[exIdx], altUsed: !next[exIdx].altUsed }
@@ -169,9 +208,9 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     })
   }
 
-  const appendExercise = (exerciseId, exerciseName, altName, numSets, targetReps) => {
+  const appendExercise = (exerciseId: string, exerciseName: string, altName: string | null, numSets: number, targetReps: string) => {
     setSessionExercises(prev => {
-      const next = [
+      const next: SessionExercise[] = [
         ...prev,
         {
           exerciseId,
@@ -181,7 +220,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
           targetSets: numSets,
           targetReps,
           lastBest: null,
-          sets: Array.from({ length: numSets }, (_, i) => ({ setNumber: i + 1, weight: '', reps: '', done: false })),
+          sets: Array.from({ length: numSets }, (_, i) => ({ setNumber: i + 1, weight: '', reps: '', repeat: '1', done: false })),
         },
       ]
       scheduleSave(next, true)
@@ -189,24 +228,25 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     })
   }
 
-  const addToPlan = async (exerciseId, targetSets, targetReps) => {
+  const addToPlan = async (exerciseId: string, targetSets: number, targetReps: string) => {
     try {
       await addExerciseToWorkoutDay(workoutDay.id, exerciseId, { targetSets, targetReps })
       await onPlanChanged?.()
-    } catch (err) {
-      if (err.code !== '23505' && !err.message?.includes('unique')) {
-        alert('Could not add to plan: ' + err.message)
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string }
+      if (error.code !== '23505' && !error.message?.includes('unique')) {
+        alert('Could not add to plan: ' + (error.message || String(err)))
       }
     }
   }
 
-  const handleSelectExisting = async (ex, { sets: numSets, targetReps }) => {
+  const handleSelectExisting = async (ex: Exercise, { sets: numSets, targetReps }: { sets: number; targetReps: string }) => {
     await addToPlan(ex.id, numSets, targetReps)
     appendExercise(ex.id, ex.name, ex.alt_name, numSets, targetReps)
     setShowAddExercise(false)
   }
 
-  const handleCreateNew = async ({ name, altName, muscleGroupId, sets: numSets }) => {
+  const handleCreateNew = async ({ name, altName, muscleGroupId, sets: numSets }: { name: string; altName: string | null; muscleGroupId: string; sets: number }) => {
     const saved = await addCustomExercise({
       name,
       altName,
@@ -218,7 +258,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     setShowAddExercise(false)
   }
 
-  const removeExercise = (exIdx) => {
+  const removeExercise = (exIdx: number) => {
     const ex = sessionExercises[exIdx]
     const hasLogged = ex.sets.some(s => s.done || s.weight || s.reps)
     if (hasLogged && !window.confirm(`Remove ${ex.exerciseName} from today's session?`)) return
@@ -246,13 +286,15 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     if (!sessionIdRef.current || saving) return
     setSaving(true)
     try {
-      const durationMins = Math.max(1, Math.round((Date.now() - startRef.current) / 60000))
+      const durationMins = isBackdated
+        ? 45
+        : Math.max(1, Math.round((Date.now() - startRef.current) / 60000))
 
       const allSets = sessionExercisesToRows(sessionExercises)
 
       await upsertSets(sessionIdRef.current, allSets)
 
-      const prs = []
+      const prs: PersonalRecord[] = []
       for (const ex of sessionExercises) {
         if (!ex.exerciseId) continue
         const doneSets = ex.sets.filter(s => s.done && s.weight)
@@ -270,17 +312,22 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
         if (pr) prs.push(pr)
       }
 
-      const finished = await finishSession(sessionIdRef.current, { durationMins, note: '' })
+      const finished = await finishSession(sessionIdRef.current, {
+        durationMins,
+        note: '',
+        startedAt: startedAtRef.current ?? undefined,
+      })
       onFinished({ ...finished, workout_days: workoutDay, session_sets: allSets, prs })
     } catch (err) {
-      alert('Error saving session: ' + err.message)
+      alert('Error saving session: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setSaving(false)
     }
   }
 
-  const doneCount = sessionExercises.reduce((a, ex) => a + ex.sets.filter(s => s.done).length, 0)
-  const totalSets = sessionExercises.reduce((a, ex) => a + ex.sets.length, 0)
+  const { done: doneCount, total: totalSets } = countLoggedSets(sessionExercises)
+
+  const setGridCols = '24px 1fr 1fr 32px 36px'
 
   if (!dayExercises.length) {
     return (
@@ -306,6 +353,19 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
             {saveStatus === 'saved' && ' · Saved'}
             {saveStatus === 'error' && ' · Save failed'}
           </div>
+        </div>
+      </div>
+
+      <div style={{ background: color, padding: '0 16px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>Date</span>
+          <input
+            type="date"
+            value={logDateStr}
+            max={toDateInputValue()}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleLogDateChange(e.target.value)}
+            style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', fontSize: 13, background: 'rgba(255,255,255,0.95)' }}
+          />
         </div>
       </div>
 
@@ -343,43 +403,63 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                 </div>
                 <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
                   Target: {ex.targetSets}×{ex.targetReps}
-                  {ex.lastBest && ` · Last: ${ex.lastBest.weight_kg ? `${ex.lastBest.weight_kg}kg × ${ex.lastBest.reps}` : `${ex.lastBest.reps}`}`}
+                  {ex.lastWeekLabel && (
+                    <span style={{ color: '#64748B', fontWeight: 600 }}> · Last week max: {ex.lastWeekLabel}</span>
+                  )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 36px', gap: 6, fontSize: 10, color: '#CBD5E1', fontWeight: 700, padding: '0 2px', marginBottom: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: setGridCols, gap: 6, fontSize: 10, color: '#CBD5E1', fontWeight: 700, padding: '0 2px', marginBottom: 4 }}>
                   <div>SET</div>
                   <div>{timed ? 'SECS' : 'KG'}</div>
                   <div>{timed ? '—' : 'REPS'}</div>
+                  <div>×</div>
                   <div />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {ex.sets.map((set, setIdx) => (
-                    <div key={setIdx} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 36px', gap: 6, alignItems: 'center' }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', textAlign: 'center' }}>{set.setNumber}</div>
+                  {ex.sets.map((set, setIdx) => {
+                    const repeat = setRepeatCount(set)
+                    return (
+                    <div key={setIdx} style={{ display: 'grid', gridTemplateColumns: setGridCols, gap: 6, alignItems: 'center' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textAlign: 'center' }}>
+                        {repeat > 1 ? `${set.setNumber}×${repeat}` : set.setNumber}
+                      </div>
                       <input
                         type="number"
                         inputMode="decimal"
-                        placeholder={timed ? 'secs' : ex.lastBest?.weight_kg || '0'}
+                        placeholder={timed ? 'secs' : (ex.lastBest?.weight_kg != null ? String(ex.lastBest.weight_kg) : '0')}
                         value={set.weight}
-                        onChange={e => updateSet(exIdx, setIdx, 'weight', e.target.value)}
-                        style={{ padding: '9px 6px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : '#fff', outline: 'none' }}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'weight', e.target.value)}
+                        style={{ padding: '9px 4px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : '#fff', outline: 'none' }}
                       />
                       <input
                         type="number"
                         inputMode="numeric"
-                        placeholder={timed ? '—' : ex.lastBest?.reps || '0'}
+                        placeholder={timed ? '—' : (ex.lastBest?.reps != null ? String(ex.lastBest.reps) : '0')}
                         value={set.reps}
-                        onChange={e => updateSet(exIdx, setIdx, 'reps', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'reps', e.target.value)}
                         disabled={timed}
-                        style={{ padding: '9px 6px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
+                        style={{ padding: '9px 4px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
+                      />
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={10}
+                        title="Repeat identical sets"
+                        value={set.repeat ?? '1'}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'repeat', e.target.value)}
+                        disabled={timed}
+                        style={{ padding: '9px 2px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 13, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
                       />
                       <button onClick={() => toggleDone(exIdx, setIdx)} style={{ width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', background: set.done ? '#10B981' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                         <Check size={16} color={set.done ? '#fff' : '#CBD5E1'} strokeWidth={3} />
                       </button>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
+                <div style={{ fontSize: 10, color: '#CBD5E1', marginTop: 8 }}>Use × for identical sets (e.g. 12kg × 12 × 2)</div>
                 <button onClick={() => addSet(exIdx)} style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   + Add Set
                 </button>

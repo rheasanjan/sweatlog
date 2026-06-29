@@ -1,12 +1,24 @@
 import { useState, useMemo } from 'react'
 import { X, Plus, Search, ChevronLeft } from 'lucide-react'
 import { DEFAULT_SETS, DEFAULT_REPS } from '../lib/program'
+import type { Exercise, MuscleGroup } from '../types'
 
-function muscleLabel(ex) {
+function muscleLabel(ex: Exercise): string {
   return (ex.exercise_muscle_groups || [])
     .map(m => m.muscle_groups?.label)
     .filter(Boolean)
     .join(' · ') || '—'
+}
+
+export interface ExercisePickerModalProps {
+  title?: string
+  color?: string
+  exercises: Exercise[]
+  muscleGroups: MuscleGroup[]
+  excludeExerciseIds?: string[]
+  onClose: () => void
+  onSelectExisting: (ex: Exercise, opts: { sets: number; targetReps: string }) => Promise<void>
+  onCreateNew: (opts: { name: string; altName: string | null; muscleGroupId: string; sets: number }) => Promise<void>
 }
 
 export default function ExercisePickerModal({
@@ -18,8 +30,8 @@ export default function ExercisePickerModal({
   onClose,
   onSelectExisting,
   onCreateNew,
-}) {
-  const [mode, setMode] = useState('list')
+}: ExercisePickerModalProps) {
+  const [mode, setMode] = useState<'list' | 'create'>('list')
   const [query, setQuery] = useState('')
   const [filterMuscle, setFilterMuscle] = useState('')
   const [sets, setSets] = useState(3)
@@ -53,7 +65,7 @@ export default function ExercisePickerModal({
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [exercises, excluded, query, filterMuscle])
 
-  const handleSelect = async (ex) => {
+  const handleSelect = async (ex: Exercise) => {
     if (saving) return
     setSaving(true)
     try {
@@ -63,7 +75,7 @@ export default function ExercisePickerModal({
       })
       onClose()
     } catch (err) {
-      alert('Could not add exercise: ' + err.message)
+      alert('Could not add exercise: ' + (err instanceof Error ? err.message : String(err)))
       setSaving(false)
     }
   }
@@ -80,7 +92,7 @@ export default function ExercisePickerModal({
       })
       onClose()
     } catch (err) {
-      alert('Could not save: ' + err.message)
+      alert('Could not save: ' + (err instanceof Error ? err.message : String(err)))
       setSaving(false)
     }
   }
@@ -112,14 +124,14 @@ export default function ExercisePickerModal({
               <input
                 autoFocus
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                 placeholder="Search exercises…"
                 style={{ width: '100%', padding: '12px 12px 12px 38px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}
               />
             </div>
             <select
               value={filterMuscle}
-              onChange={e => setFilterMuscle(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterMuscle(e.target.value)}
               style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 13, marginBottom: 12, background: '#fff', flexShrink: 0 }}
             >
               <option value="">All muscle groups</option>
@@ -160,13 +172,13 @@ export default function ExercisePickerModal({
         ) : (
           <div style={{ overflowY: 'auto' }}>
             <FieldLabel>Exercise name</FieldLabel>
-            <FieldInput autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Cable Crossover" />
+            <FieldInput autoFocus value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="e.g. Cable Crossover" />
             <FieldLabel>Alternative name (optional)</FieldLabel>
-            <FieldInput value={altName} onChange={e => setAltName(e.target.value)} placeholder="e.g. Pec Dec" />
+            <FieldInput value={altName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAltName(e.target.value)} placeholder="e.g. Pec Dec" />
             <FieldLabel>Muscle group</FieldLabel>
             <select
               value={muscleGroupId}
-              onChange={e => setMuscleGroupId(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMuscleGroupId(e.target.value)}
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, marginBottom: 16, background: '#fff' }}
             >
               {muscleGroups.map(mg => (
@@ -189,7 +201,13 @@ export default function ExercisePickerModal({
   )
 }
 
-function SetPicker({ sets, onChange, color }) {
+interface SetPickerProps {
+  sets: number
+  onChange: (n: number) => void
+  color: string
+}
+
+function SetPicker({ sets, onChange, color }: SetPickerProps) {
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
       {[2, 3, 4, 5].map(n => (
@@ -206,11 +224,11 @@ function SetPicker({ sets, onChange, color }) {
   )
 }
 
-function FieldLabel({ children }) {
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>{children}</div>
 }
 
-function FieldInput(props) {
+function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}

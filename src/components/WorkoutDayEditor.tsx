@@ -3,14 +3,24 @@ import { X, Plus, Trash2 } from 'lucide-react'
 import { DEFAULT_SETS, DEFAULT_REPS } from '../lib/program'
 import { addCustomExercise, addExerciseToWorkoutDay, removeExerciseFromWorkoutDay } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
+import type { WorkoutDay, WorkoutDayExercise, Exercise, MuscleGroup } from '../types'
 
-export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, muscleGroups, onClose, onUpdated }) {
+export interface WorkoutDayEditorProps {
+  workoutDay: WorkoutDay
+  dayExercises: WorkoutDayExercise[]
+  exercises: Exercise[]
+  muscleGroups: MuscleGroup[]
+  onClose: () => void
+  onUpdated: () => Promise<void>
+}
+
+export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, muscleGroups, onClose, onUpdated }: WorkoutDayEditorProps) {
   const [showPicker, setShowPicker] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const assignedIds = dayExercises.map(d => d.exercise_id)
 
-  const handleSelectExisting = async (ex) => {
+  const handleSelectExisting = async (ex: Exercise) => {
     if (saving) return
     setSaving(true)
     try {
@@ -21,14 +31,14 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
       await onUpdated()
       setShowPicker(false)
     } catch (err) {
-      alert('Could not add exercise: ' + err.message)
+      alert('Could not add exercise: ' + (err instanceof Error ? err.message : String(err)))
       throw err
     } finally {
       setSaving(false)
     }
   }
 
-  const handleRemove = async (wdeId, exerciseName) => {
+  const handleRemove = async (wdeId: string, exerciseName: string | undefined) => {
     if (saving) return
     if (!window.confirm(`Remove ${exerciseName} from your ${workoutDay.name} plan?`)) return
     setSaving(true)
@@ -36,13 +46,13 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
       await removeExerciseFromWorkoutDay(wdeId)
       await onUpdated()
     } catch (err) {
-      alert('Could not remove exercise: ' + err.message)
+      alert('Could not remove exercise: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setSaving(false)
     }
   }
 
-  const handleCreateNew = async ({ name, altName, muscleGroupId, sets }) => {
+  const handleCreateNew = async ({ name, altName, muscleGroupId, sets }: { name: string; altName: string | null; muscleGroupId: string; sets: number }) => {
     if (saving) return
     setSaving(true)
     try {
@@ -58,7 +68,7 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
       await onUpdated()
       setShowPicker(false)
     } catch (err) {
-      alert('Could not create exercise: ' + err.message)
+      alert('Could not create exercise: ' + (err instanceof Error ? err.message : String(err)))
       throw err
     } finally {
       setSaving(false)

@@ -2,27 +2,42 @@ import { useState } from 'react'
 import { ChevronLeft, Plus, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { logBodyCheckin, fetchStrengthHistory } from '../lib/supabase'
+import type { Session, BodyLogEntry, Exercise } from '../types'
 
-export default function Progress({ sessions, bodyLog, exercises, onBack, onCheckinSaved }) {
+interface ChartDataPoint {
+  date: string
+  weight?: number | null
+  waist?: number | null
+}
+
+export interface ProgressProps {
+  sessions: Session[]
+  bodyLog: BodyLogEntry[]
+  exercises: Exercise[]
+  onBack: () => void
+  onCheckinSaved: () => Promise<void>
+}
+
+export default function Progress({ sessions, bodyLog, exercises, onBack, onCheckinSaved }: ProgressProps) {
   const [showCheckin, setShowCheckin] = useState(false)
   const [selectedExId, setSelectedExId] = useState('')
-  const [strengthData, setStrengthData] = useState([])
+  const [strengthData, setStrengthData] = useState<ChartDataPoint[]>([])
   const [loadingStrength, setLoadingStrength] = useState(false)
 
   const sortedBody = [...bodyLog].sort((a, b) => a.date.localeCompare(b.date))
   const weightData = sortedBody
     .filter(b => b.weight_kg)
-    .map(b => ({ date: formatDate(b.date), weight: parseFloat(b.weight_kg) }))
+    .map(b => ({ date: formatDate(b.date), weight: parseFloat(String(b.weight_kg)) }))
 
   const waistData = sortedBody
     .filter(b => b.waist_cm)
-    .map(b => ({ date: formatDate(b.date), waist: parseFloat(b.waist_cm) }))
+    .map(b => ({ date: formatDate(b.date), waist: parseFloat(String(b.waist_cm)) }))
 
   const latestWeight = weightData.length ? weightData[weightData.length - 1].weight : null
   const startWeight = weightData.length ? weightData[0].weight : null
-  const weightDelta = latestWeight && startWeight ? (latestWeight - startWeight).toFixed(1) : null
+  const weightDelta = latestWeight != null && startWeight != null ? (latestWeight - startWeight).toFixed(1) : null
 
-  const handleExerciseChange = async (exId) => {
+  const handleExerciseChange = async (exId: string) => {
     setSelectedExId(exId)
     if (!exId) { setStrengthData([]); return }
     setLoadingStrength(true)
@@ -41,7 +56,6 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
     await onCheckinSaved()
   }
 
-  // Get unique exercises that have been logged
   const loggedExerciseIds = new Set(
     sessions.flatMap(s => (s.session_sets || []).map(ss => ss.exercise_id))
   )
@@ -57,14 +71,12 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
       </div>
 
       <div style={{ padding: '16px 16px 100px' }}>
-        {/* Stats row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 20 }}>
           <StatCard label="Sessions" value={sessions.length} />
-          <StatCard label="Current weight" value={latestWeight ? `${latestWeight}kg` : '—'} />
-          <StatCard label="Change" value={weightDelta ? `${weightDelta > 0 ? '+' : ''}${weightDelta}kg` : '—'} highlight={weightDelta < 0} />
+          <StatCard label="Current weight" value={latestWeight != null ? `${latestWeight}kg` : '—'} />
+          <StatCard label="Change" value={weightDelta != null ? `${Number(weightDelta) > 0 ? '+' : ''}${weightDelta}kg` : '—'} highlight={weightDelta != null && Number(weightDelta) < 0} />
         </div>
 
-        {/* Weight chart */}
         <Card>
           <CardHeader label="Body weight" onAction={() => setShowCheckin(true)} actionLabel="Log" />
           {weightData.length < 2 ? (
@@ -74,7 +86,6 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
           )}
         </Card>
 
-        {/* Waist chart */}
         {waistData.length >= 2 && (
           <Card>
             <CardHeader label="Waist circumference" />
@@ -82,7 +93,6 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
           </Card>
         )}
 
-        {/* Strength chart */}
         <Card>
           <CardHeader label="Strength by exercise" />
           {loggedExercises.length === 0 ? (
@@ -91,7 +101,7 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
             <>
               <select
                 value={selectedExId}
-                onChange={e => handleExerciseChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleExerciseChange(e.target.value)}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 13, marginBottom: 12, background: '#fff', color: '#0F172A' }}
               >
                 <option value="">Select an exercise…</option>
@@ -110,13 +120,12 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
           )}
         </Card>
 
-        {/* Totals */}
         <div style={{ background: '#0F172A', borderRadius: 14, padding: '16px', display: 'flex', justifyContent: 'space-around' }}>
-          {[
+          {([
             ['Sessions', sessions.length],
             ['Weight logs', bodyLog.length],
             ['Exercises', exercises.length],
-          ].map(([label, val]) => (
+          ] as const).map(([label, val]) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{val}</div>
               <div style={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
@@ -130,7 +139,13 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
   )
 }
 
-function StatCard({ label, value, highlight }) {
+interface StatCardProps {
+  label: string
+  value: string | number
+  highlight?: boolean
+}
+
+function StatCard({ label, value, highlight }: StatCardProps) {
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
       <div style={{ fontSize: 18, fontWeight: 800, color: highlight ? '#10B981' : '#0F172A' }}>{value}</div>
@@ -139,11 +154,17 @@ function StatCard({ label, value, highlight }) {
   )
 }
 
-function Card({ children }) {
+function Card({ children }: { children: React.ReactNode }) {
   return <div style={{ background: '#fff', borderRadius: 14, padding: '16px', marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>{children}</div>
 }
 
-function CardHeader({ label, onAction, actionLabel }) {
+interface CardHeaderProps {
+  label: string
+  onAction?: () => void
+  actionLabel?: string
+}
+
+function CardHeader({ label, onAction, actionLabel }: CardHeaderProps) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
       <div style={{ fontWeight: 800, fontSize: 14 }}>{label}</div>
@@ -156,28 +177,40 @@ function CardHeader({ label, onAction, actionLabel }) {
   )
 }
 
-function Empty({ text }) {
+function Empty({ text }: { text: string }) {
   return <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12, padding: '16px 0' }}>{text}</div>
 }
 
-function Chart({ data, dataKey, color, unit }) {
+interface ChartProps {
+  data: ChartDataPoint[]
+  dataKey: 'weight' | 'waist'
+  color: string
+  unit: string
+}
+
+function Chart({ data, dataKey, color, unit }: ChartProps) {
   return (
     <ResponsiveContainer width="100%" height={160}>
       <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
         <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
         <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} domain={['dataMin - 1', 'dataMax + 1']} />
-        <Tooltip formatter={v => [`${v}${unit}`, '']} labelStyle={{ fontSize: 11 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+        <Tooltip formatter={(v: number) => [`${v}${unit}`, '']} labelStyle={{ fontSize: 11 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
         <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} />
       </LineChart>
     </ResponsiveContainer>
   )
 }
 
-function CheckinModal({ onClose, onSaved }) {
+interface CheckinModalProps {
+  onClose: () => void
+  onSaved: () => Promise<void>
+}
+
+function CheckinModal({ onClose, onSaved }: CheckinModalProps) {
   const [weight, setWeight] = useState('')
   const [waist, setWaist] = useState('')
-  const [energy, setEnergy] = useState(null)
+  const [energy, setEnergy] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
@@ -187,7 +220,7 @@ function CheckinModal({ onClose, onSaved }) {
       await logBodyCheckin({ weightKg: weight, waistCm: waist || null, energy, note: null })
       await onSaved()
     } catch (e) {
-      alert('Could not save: ' + e.message)
+      alert('Could not save: ' + (e instanceof Error ? e.message : String(e)))
       setSaving(false)
     }
   }
@@ -203,10 +236,10 @@ function CheckinModal({ onClose, onSaved }) {
         </div>
 
         <FieldLabel>Weight (kg) *</FieldLabel>
-        <ModalInput autoFocus type="number" inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} placeholder="66.0" />
+        <ModalInput autoFocus type="number" inputMode="decimal" value={weight} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(e.target.value)} placeholder="66.0" />
 
         <FieldLabel>Waist (cm) — optional</FieldLabel>
-        <ModalInput type="number" inputMode="decimal" value={waist} onChange={e => setWaist(e.target.value)} placeholder="70" />
+        <ModalInput type="number" inputMode="decimal" value={waist} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWaist(e.target.value)} placeholder="70" />
 
         <FieldLabel>Energy today — optional</FieldLabel>
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -229,11 +262,11 @@ function CheckinModal({ onClose, onSaved }) {
   )
 }
 
-function FieldLabel({ children }) {
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>{children}</div>
 }
 
-function ModalInput(props) {
+function ModalInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
@@ -242,6 +275,6 @@ function ModalInput(props) {
   )
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }

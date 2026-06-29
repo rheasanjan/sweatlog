@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react'
 import { Dumbbell, Check, Minus } from 'lucide-react'
 import { lightColor, startOfWeek } from '../lib/program'
+import type { BodyLogEntry, Session, WorkoutDay, WorkoutSkip } from '../types'
 
-function daysAgo(dateStr) {
+function daysAgo(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null
   const diff = Date.now() - new Date(dateStr).getTime()
   const d = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -10,9 +12,9 @@ function daysAgo(dateStr) {
   return `${d} days ago`
 }
 
-function computeStreak(sessions, workoutDayCount) {
+function computeStreak(sessions: Session[], workoutDayCount: number): number {
   if (!sessions.length || !workoutDayCount) return 0
-  const byWeek = {}
+  const byWeek: Record<string, Set<string>> = {}
   sessions.forEach(s => {
     const monday = startOfWeek(new Date(s.started_at))
     const key = monday.toISOString().slice(0, 10)
@@ -28,7 +30,16 @@ function computeStreak(sessions, workoutDayCount) {
   return streak
 }
 
-export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStart, onEditSession }) {
+export interface HomeProps {
+  workoutDays: WorkoutDay[]
+  sessions: Session[]
+  bodyLog: BodyLogEntry[]
+  weekSkips: WorkoutSkip[]
+  onStart: () => void
+  onEditSession: (session: Session) => void
+}
+
+export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStart, onEditSession }: HomeProps) {
   const weekStart = startOfWeek()
   const weekKey = weekStart.toISOString().slice(0, 10)
   const thisWeek = sessions.filter(s => new Date(s.started_at) >= weekStart)
@@ -44,7 +55,7 @@ export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStar
     : '—'
 
   const streak = computeStreak(sessions, dayCount)
-  const recent = [...sessions].sort((a, b) => new Date(b.started_at) - new Date(a.started_at)).slice(0, 5)
+  const recent = [...sessions].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()).slice(0, 5)
 
   const gridCols = Math.min(dayCount, 5)
 
@@ -105,7 +116,7 @@ export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStar
           onClick={onStart}
           style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 14, padding: '16px', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginBottom: 28 }}
         >
-          <Dumbbell size={18} /> Start Today's Session
+          <Dumbbell size={18} /> Log a Workout
         </button>
 
         <SectionLabel>Recent Sessions</SectionLabel>
@@ -140,7 +151,13 @@ export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStar
   )
 }
 
-function Stat({ value, label, highlight }) {
+interface StatProps {
+  value: string
+  label: string
+  highlight?: boolean
+}
+
+function Stat({ value, label, highlight }: StatProps) {
   return (
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 16, fontWeight: 800, color: highlight ? '#FCD34D' : '#E2E8F0' }}>{value}</div>
@@ -149,10 +166,10 @@ function Stat({ value, label, highlight }) {
   )
 }
 
-export function SectionLabel({ children }) {
+export function SectionLabel({ children }: { children: ReactNode }) {
   return <div style={{ fontSize: 11, letterSpacing: 2, color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>{children}</div>
 }
 
-export function EmptyCard({ text }) {
+export function EmptyCard({ text }: { text: string }) {
   return <div style={{ background: '#fff', borderRadius: 12, padding: 20, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>{text}</div>
 }

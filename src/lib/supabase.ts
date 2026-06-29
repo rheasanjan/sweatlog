@@ -1,4 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
+import type {
+  BodyLogEntry,
+  Exercise,
+  MuscleGroup,
+  PersonalRecord,
+  Session,
+  StrengthHistoryPoint,
+  WorkoutDay,
+  WorkoutDayExercise,
+  WorkoutSkip,
+  SetRow,
+} from '../types'
 import { slugify } from './program'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -16,7 +28,7 @@ const EXERCISE_SELECT = `
 
 // ─── WORKOUT SKIPS ─────────────────────────────────────────────
 
-export async function fetchWeekSkips(weekStart) {
+export async function fetchWeekSkips(weekStart: string): Promise<WorkoutSkip[]> {
   const { data, error } = await supabase
     .from('workout_skips')
     .select('id, workout_day_id, week_start, note')
@@ -25,7 +37,7 @@ export async function fetchWeekSkips(weekStart) {
   return data
 }
 
-export async function fetchAllWeekSkips() {
+export async function fetchAllWeekSkips(): Promise<WorkoutSkip[]> {
   const { data, error } = await supabase
     .from('workout_skips')
     .select('id, workout_day_id, week_start, note')
@@ -34,7 +46,7 @@ export async function fetchAllWeekSkips() {
   return data
 }
 
-export async function skipWorkoutForWeek(workoutDayId, weekStart) {
+export async function skipWorkoutForWeek(workoutDayId: string, weekStart: string): Promise<WorkoutSkip> {
   const { data, error } = await supabase
     .from('workout_skips')
     .upsert({ workout_day_id: workoutDayId, week_start: weekStart }, { onConflict: 'workout_day_id,week_start' })
@@ -44,7 +56,7 @@ export async function skipWorkoutForWeek(workoutDayId, weekStart) {
   return data
 }
 
-export async function unskipWorkoutForWeek(workoutDayId, weekStart) {
+export async function unskipWorkoutForWeek(workoutDayId: string, weekStart: string): Promise<void> {
   const { error } = await supabase
     .from('workout_skips')
     .delete()
@@ -55,7 +67,7 @@ export async function unskipWorkoutForWeek(workoutDayId, weekStart) {
 
 // ─── MUSCLE GROUPS ───────────────────────────────────────────
 
-export async function fetchMuscleGroups() {
+export async function fetchMuscleGroups(): Promise<MuscleGroup[]> {
   const { data, error } = await supabase
     .from('muscle_groups')
     .select('*')
@@ -66,7 +78,7 @@ export async function fetchMuscleGroups() {
 
 // ─── EXERCISES ───────────────────────────────────────────────
 
-export async function fetchAllExercises() {
+export async function fetchAllExercises(): Promise<Exercise[]> {
   const { data, error } = await supabase
     .from('exercises')
     .select(EXERCISE_SELECT)
@@ -76,7 +88,15 @@ export async function fetchAllExercises() {
   return data
 }
 
-export async function addCustomExercise({ name, altName, muscleGroupIds }) {
+export async function addCustomExercise({
+  name,
+  altName,
+  muscleGroupIds,
+}: {
+  name: string
+  altName?: string | null
+  muscleGroupIds?: string[]
+}): Promise<Exercise> {
   const { data: exercise, error } = await supabase
     .from('exercises')
     .insert({ name, alt_name: altName || null, is_custom: true })
@@ -96,7 +116,7 @@ export async function addCustomExercise({ name, altName, muscleGroupIds }) {
 
 // ─── WORKOUT DAYS ────────────────────────────────────────────
 
-export async function fetchWorkoutDays() {
+export async function fetchWorkoutDays(): Promise<WorkoutDay[]> {
   const { data, error } = await supabase
     .from('workout_days')
     .select('*')
@@ -105,7 +125,15 @@ export async function fetchWorkoutDays() {
   return data
 }
 
-export async function createWorkoutDay({ name, subtitle, color }) {
+export async function createWorkoutDay({
+  name,
+  subtitle,
+  color,
+}: {
+  name: string
+  subtitle?: string | null
+  color?: string
+}): Promise<WorkoutDay> {
   const { data: existing } = await supabase.from('workout_days').select('sort_order').order('sort_order', { ascending: false }).limit(1)
   const nextOrder = (existing?.[0]?.sort_order || 0) + 1
   let slug = slugify(name)
@@ -128,7 +156,7 @@ export async function createWorkoutDay({ name, subtitle, color }) {
   return data
 }
 
-export async function deleteWorkoutDay(workoutDayId) {
+export async function deleteWorkoutDay(workoutDayId: string): Promise<void> {
   const { error } = await supabase
     .from('workout_days')
     .delete()
@@ -137,7 +165,7 @@ export async function deleteWorkoutDay(workoutDayId) {
   if (error) throw error
 }
 
-export async function fetchWorkoutDayExercises(workoutDayId) {
+export async function fetchWorkoutDayExercises(workoutDayId: string): Promise<WorkoutDayExercise[]> {
   const { data, error } = await supabase
     .from('workout_day_exercises')
     .select(`
@@ -147,10 +175,14 @@ export async function fetchWorkoutDayExercises(workoutDayId) {
     .eq('workout_day_id', workoutDayId)
     .order('sort_order')
   if (error) throw error
-  return data
+  return data as unknown as WorkoutDayExercise[]
 }
 
-export async function addExerciseToWorkoutDay(workoutDayId, exerciseId, { targetSets = 3, targetReps = '8–12' } = {}) {
+export async function addExerciseToWorkoutDay(
+  workoutDayId: string,
+  exerciseId: string,
+  { targetSets = 3, targetReps = '8–12' }: { targetSets?: number; targetReps?: string } = {},
+): Promise<WorkoutDayExercise> {
   const { data: existing } = await supabase
     .from('workout_day_exercises')
     .select('sort_order')
@@ -174,7 +206,7 @@ export async function addExerciseToWorkoutDay(workoutDayId, exerciseId, { target
   return data
 }
 
-export async function removeExerciseFromWorkoutDay(workoutDayExerciseId) {
+export async function removeExerciseFromWorkoutDay(workoutDayExerciseId: string): Promise<void> {
   const { error } = await supabase
     .from('workout_day_exercises')
     .delete()
@@ -184,22 +216,32 @@ export async function removeExerciseFromWorkoutDay(workoutDayExerciseId) {
 
 // ─── SESSIONS ────────────────────────────────────────────────
 
-export async function createSession(workoutDayId) {
+export async function createSession(
+  workoutDayId: string,
+  { startedAt }: { startedAt?: string } = {},
+): Promise<Session> {
+  const started = startedAt || new Date().toISOString()
   const { data, error } = await supabase
     .from('sessions')
-    .insert({ workout_day_id: workoutDayId, status: 'in_progress', started_at: new Date().toISOString() })
+    .insert({ workout_day_id: workoutDayId, status: 'in_progress', started_at: started })
     .select()
     .single()
   if (error) throw error
   return data
 }
 
-export async function finishSession(sessionId, { durationMins, note }) {
+export async function finishSession(
+  sessionId: string,
+  { durationMins, note, startedAt }: { durationMins?: number; note?: string | null; startedAt?: string } = {},
+): Promise<Session> {
+  const finishTime = startedAt
+    ? new Date(new Date(startedAt).getTime() + Math.max(1, durationMins || 1) * 60000).toISOString()
+    : new Date().toISOString()
   const { data, error } = await supabase
     .from('sessions')
     .update({
       status: 'completed',
-      finished_at: new Date().toISOString(),
+      finished_at: finishTime,
       duration_mins: durationMins,
       note,
     })
@@ -210,7 +252,25 @@ export async function finishSession(sessionId, { durationMins, note }) {
   return data
 }
 
-export async function abandonSession(sessionId) {
+export async function updateSession(
+  sessionId: string,
+  { startedAt, finishedAt, durationMins }: { startedAt?: string; finishedAt?: string; durationMins?: number } = {},
+): Promise<Session> {
+  const updates: Record<string, string | number> = {}
+  if (startedAt) updates.started_at = startedAt
+  if (finishedAt) updates.finished_at = finishedAt
+  if (durationMins != null) updates.duration_mins = durationMins
+  const { data, error } = await supabase
+    .from('sessions')
+    .update(updates)
+    .eq('id', sessionId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function abandonSession(sessionId: string): Promise<void> {
   const { error } = await supabase
     .from('sessions')
     .update({ status: 'abandoned' })
@@ -218,7 +278,7 @@ export async function abandonSession(sessionId) {
   if (error) throw error
 }
 
-export async function fetchRecentSessions(limit = 20) {
+export async function fetchRecentSessions(limit = 20): Promise<Session[]> {
   const { data, error } = await supabase
     .from('sessions')
     .select(`
@@ -238,7 +298,7 @@ export async function fetchRecentSessions(limit = 20) {
 
 // ─── SESSION SETS ─────────────────────────────────────────────
 
-export async function upsertSets(sessionId, sets) {
+export async function upsertSets(sessionId: string, sets: SetRow[]): Promise<void> {
   const { error: deleteError } = await supabase
     .from('session_sets')
     .delete()
@@ -264,16 +324,26 @@ export async function upsertSets(sessionId, sets) {
 
 // ─── BODY CHECK-INS ──────────────────────────────────────────
 
-export async function logBodyCheckin({ weightKg, waistCm, energy, note }) {
+export async function logBodyCheckin({
+  weightKg,
+  waistCm,
+  energy,
+  note,
+}: {
+  weightKg?: string | number | null
+  waistCm?: string | number | null
+  energy?: string | number | null
+  note?: string | null
+}): Promise<BodyLogEntry> {
   const date = new Date().toISOString().slice(0, 10)
   const { data, error } = await supabase
     .from('body_checkins')
     .upsert(
       {
         date,
-        weight_kg: weightKg ? parseFloat(weightKg) : null,
-        waist_cm:  waistCm  ? parseFloat(waistCm)  : null,
-        energy:    energy   ? parseInt(energy)      : null,
+        weight_kg: weightKg ? parseFloat(String(weightKg)) : null,
+        waist_cm:  waistCm  ? parseFloat(String(waistCm))  : null,
+        energy:    energy   ? parseInt(String(energy))      : null,
         note:      note || null,
       },
       { onConflict: 'date' }
@@ -284,7 +354,7 @@ export async function logBodyCheckin({ weightKg, waistCm, energy, note }) {
   return data
 }
 
-export async function fetchBodyLog() {
+export async function fetchBodyLog(): Promise<BodyLogEntry[]> {
   const { data, error } = await supabase
     .from('latest_body_log')
     .select('date, weight_kg, waist_cm, energy, note')
@@ -295,15 +365,22 @@ export async function fetchBodyLog() {
 
 // ─── PERSONAL RECORDS ─────────────────────────────────────────
 
-export async function checkAndSavePR(sessionId, exerciseId, exerciseName, weightKg, reps, durationSecs) {
+export async function checkAndSavePR(
+  sessionId: string,
+  exerciseId: string,
+  exerciseName: string,
+  weightKg: string | number | null,
+  reps: string | number | null,
+  durationSecs: string | number | null,
+): Promise<PersonalRecord | null> {
   const { data: existing } = await supabase
     .from('personal_records')
     .select('weight_kg, reps, duration_secs')
     .eq('exercise_id', exerciseId)
     .maybeSingle()
 
-  const weight = weightKg ? parseFloat(weightKg) : null
-  const duration = durationSecs ? parseInt(durationSecs) : null
+  const weight = weightKg ? parseFloat(String(weightKg)) : null
+  const duration = durationSecs ? parseInt(String(durationSecs)) : null
 
   if (duration != null) {
     const currentBest = existing?.duration_secs || 0
@@ -322,7 +399,7 @@ export async function checkAndSavePR(sessionId, exerciseId, exerciseName, weight
         exercise_id: exerciseId,
         exercise_name: exerciseName,
         weight_kg: weight,
-        reps: reps ? parseInt(reps) : null,
+        reps: reps ? parseInt(String(reps)) : null,
         duration_secs: duration,
         session_id: sessionId,
         achieved_at: new Date().toISOString(),
@@ -335,7 +412,7 @@ export async function checkAndSavePR(sessionId, exerciseId, exerciseName, weight
   return data
 }
 
-export async function fetchStrengthHistory(exerciseId) {
+export async function fetchStrengthHistory(exerciseId: string): Promise<StrengthHistoryPoint[]> {
   const { data, error } = await supabase
     .from('session_sets')
     .select('weight_kg, reps, duration_secs, created_at, sessions!inner(started_at, status)')
@@ -345,10 +422,15 @@ export async function fetchStrengthHistory(exerciseId) {
     .order('created_at', { ascending: true })
   if (error) throw error
 
-  const bySession = {}
-  data.forEach(row => {
+  const bySession: Record<string, StrengthHistoryPoint> = {}
+  for (const row of data as unknown as Array<{
+    weight_kg: number | null
+    reps: number | null
+    duration_secs: number | null
+    sessions: { started_at: string; status: string }
+  }>) {
     const dateKey = row.sessions.started_at.slice(0, 10)
-    const weight = row.weight_kg != null ? parseFloat(row.weight_kg) : null
+    const weight = row.weight_kg != null ? parseFloat(String(row.weight_kg)) : null
     const duration = row.duration_secs
     const current = bySession[dateKey]
 
@@ -361,6 +443,6 @@ export async function fetchStrengthHistory(exerciseId) {
         bySession[dateKey] = { date: dateKey, weight_kg: weight, reps: row.reps, duration_secs: duration }
       }
     }
-  })
+  }
   return Object.values(bySession).sort((a, b) => a.date.localeCompare(b.date))
 }

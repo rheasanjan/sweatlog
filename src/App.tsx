@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { Screen, Session, WorkoutDay, WorkoutDayExercise, Exercise, MuscleGroup, WorkoutSkip, BodyLogEntry, FinishedSession } from './types'
 import Home from './components/Home'
 import Picker from './components/Picker'
 import ActiveSession from './components/ActiveSession'
@@ -17,22 +18,26 @@ import {
   fetchAllWeekSkips,
 } from './lib/supabase'
 
-export default function App() {
-  const [screen, setScreen] = useState('home')
-  const [sessions, setSessions] = useState([])
-  const [bodyLog, setBodyLog] = useState([])
-  const [exercises, setExercises] = useState([])
-  const [workoutDays, setWorkoutDays] = useState([])
-  const [muscleGroups, setMuscleGroups] = useState([])
-  const [weekSkips, setWeekSkips] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+type EditReturnScreen = 'home' | 'picker' | 'history'
 
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState(null)
-  const [activeDayExercises, setActiveDayExercises] = useState([])
-  const [finishedSession, setFinishedSession] = useState(null)
-  const [editingSession, setEditingSession] = useState(null)
-  const [editReturnScreen, setEditReturnScreen] = useState('history')
+export default function App() {
+  const [screen, setScreen] = useState<Screen>('home')
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [bodyLog, setBodyLog] = useState<BodyLogEntry[]>([])
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [workoutDays, setWorkoutDays] = useState<WorkoutDay[]>([])
+  const [muscleGroups, setMuscleGroups] = useState<MuscleGroup[]>([])
+  const [weekSkips, setWeekSkips] = useState<WorkoutSkip[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState<WorkoutDay | null>(null)
+  const [activeDayExercises, setActiveDayExercises] = useState<WorkoutDayExercise[]>([])
+  const [sessionLogDate, setSessionLogDate] = useState<Date | null>(null)
+  const [sessionReturnScreen, setSessionReturnScreen] = useState<EditReturnScreen>('picker')
+  const [finishedSession, setFinishedSession] = useState<FinishedSession | null>(null)
+  const [editingSession, setEditingSession] = useState<Session | null>(null)
+  const [editReturnScreen, setEditReturnScreen] = useState<EditReturnScreen>('history')
 
   const loadAll = async () => {
     const [s, b, e, d, m, skips] = await Promise.all([
@@ -53,7 +58,7 @@ export default function App() {
 
   useEffect(() => {
     loadAll()
-      .catch(err => setError(err.message))
+      .catch(err => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false))
   }, [])
 
@@ -72,20 +77,27 @@ export default function App() {
     setActiveDayExercises(dayExercises)
   }
 
-  const startSession = async (workoutDay) => {
+  const startSession = async (workoutDay: WorkoutDay, logDate: Date = new Date(), returnScreen: EditReturnScreen = 'picker') => {
     const dayExercises = await fetchWorkoutDayExercises(workoutDay.id)
     setActiveWorkoutDay(workoutDay)
     setActiveDayExercises(dayExercises)
+    setSessionLogDate(logDate)
+    setSessionReturnScreen(returnScreen)
     setScreen('session')
   }
 
-  const handleSessionFinished = async (session) => {
+  const handleSessionBack = () => {
+    setSessionLogDate(null)
+    setScreen(sessionReturnScreen)
+  }
+
+  const handleSessionFinished = async (session: FinishedSession) => {
     setFinishedSession(session)
     setScreen('summary')
     await refreshData()
   }
 
-  const openSessionEdit = (session, from = 'history') => {
+  const openSessionEdit = (session: Session, from: EditReturnScreen = 'history') => {
     setEditingSession(session)
     setEditReturnScreen(from)
     setScreen('sessionEdit')
@@ -133,7 +145,8 @@ export default function App() {
           exercises={exercises}
           muscleGroups={muscleGroups}
           onBack={() => setScreen('home')}
-          onSelect={startSession}
+          onSelect={(day, logDate) => startSession(day, logDate, 'picker')}
+          onEditSession={(session) => openSessionEdit(session, 'picker')}
           onDaysChanged={refreshData}
         />
       )}
@@ -144,7 +157,8 @@ export default function App() {
           exercises={exercises}
           sessions={sessions}
           muscleGroups={muscleGroups}
-          onBack={() => setScreen('picker')}
+          logDate={sessionLogDate}
+          onBack={handleSessionBack}
           onFinished={handleSessionFinished}
           onExerciseAdded={refreshExercises}
           onPlanChanged={refreshDayPlan}
@@ -172,11 +186,14 @@ export default function App() {
           weekSkips={weekSkips}
           onBack={() => setScreen('home')}
           onEditSession={(session) => openSessionEdit(session, 'history')}
+          onLogSession={(day, logDate) => startSession(day, logDate, 'history')}
         />
       )}
       {screen === 'sessionEdit' && editingSession && (
         <SessionEdit
           session={editingSession}
+          exercises={exercises}
+          muscleGroups={muscleGroups}
           onBack={() => {
             setEditingSession(null)
             setScreen(editReturnScreen)

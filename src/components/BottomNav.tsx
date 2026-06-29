@@ -1,6 +1,14 @@
 import { Home, CalendarDays, TrendingUp } from 'lucide-react'
+import type { Screen } from '../types'
 
-export default function BottomNav({ screen, onHome, onHistory, onProgress }) {
+interface BottomNavProps {
+  screen: Screen
+  onHome: () => void
+  onHistory: () => void
+  onProgress: () => void
+}
+
+export default function BottomNav({ screen, onHome, onHistory, onProgress }: BottomNavProps) {
   const isHome = ['home', 'picker', 'summary'].includes(screen)
   const items = [
     { id: 'home', icon: Home, label: 'Home', action: onHome, active: isHome },

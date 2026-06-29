@@ -1,14 +1,30 @@
 import { Check } from 'lucide-react'
+import type { FinishedSession, SessionSet, WorkoutDay } from '../types'
 
-export default function Summary({ session, onDone }) {
+type SummarySet = SessionSet & {
+  exerciseName?: string
+  durationSecs?: number | null
+  weightKg?: number | null
+}
+
+interface SummarySession extends FinishedSession {
+  workoutDay?: Pick<WorkoutDay, 'id' | 'name' | 'slug' | 'color' | 'subtitle'>
+}
+
+export interface SummaryProps {
+  session: SummarySession
+  onDone: () => void
+}
+
+export default function Summary({ session, onDone }: SummaryProps) {
   const day = session.workout_days || session.workoutDay
   const color = day?.color || '#2563EB'
-  const sets = session.session_sets || []
+  const sets = (session.session_sets || []) as SummarySet[]
   const doneSets = sets.filter(s => s.done)
   const prs = session.prs || []
 
-  const byExercise = doneSets.reduce((acc, s) => {
-    const name = s.exercise_name || s.exerciseName
+  const byExercise = doneSets.reduce<Record<string, SummarySet[]>>((acc, s) => {
+    const name = s.exercise_name || s.exerciseName || 'Unknown'
     if (!acc[name]) acc[name] = []
     acc[name].push(s)
     return acc
