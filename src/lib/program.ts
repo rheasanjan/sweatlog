@@ -249,3 +249,21 @@ export function lightColor(hex: string): string {
   }
   return map[hex] || '#F1F5F9'
 }
+
+/** Consecutive weeks (newest first) where every programmed day has a session. */
+export function computeStreak(sessions: Session[], workoutDayCount: number): number {
+  if (!sessions.length || !workoutDayCount) return 0
+  const byWeek: Record<string, Set<string>> = {}
+  sessions.forEach(s => {
+    const key = weekStartKey(new Date(s.started_at))
+    byWeek[key] = byWeek[key] || new Set()
+    byWeek[key].add(s.workout_day_id)
+  })
+  const weeks = Object.keys(byWeek).sort().reverse()
+  let streak = 0
+  for (const wk of weeks) {
+    if (byWeek[wk].size >= workoutDayCount) streak++
+    else break
+  }
+  return streak
+}

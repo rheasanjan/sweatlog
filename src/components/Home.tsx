@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Dumbbell, Check, Minus } from 'lucide-react'
-import { lightColor, startOfWeek } from '../lib/program'
+import { lightColor, startOfWeek, computeStreak } from '../lib/program'
 import type { BodyLogEntry, Session, WorkoutDay, WorkoutSkip } from '../types'
 
 function daysAgo(dateStr: string | null | undefined): string | null {
@@ -10,24 +10,6 @@ function daysAgo(dateStr: string | null | undefined): string | null {
   if (d === 0) return 'Today'
   if (d === 1) return 'Yesterday'
   return `${d} days ago`
-}
-
-function computeStreak(sessions: Session[], workoutDayCount: number): number {
-  if (!sessions.length || !workoutDayCount) return 0
-  const byWeek: Record<string, Set<string>> = {}
-  sessions.forEach(s => {
-    const monday = startOfWeek(new Date(s.started_at))
-    const key = monday.toISOString().slice(0, 10)
-    byWeek[key] = byWeek[key] || new Set()
-    byWeek[key].add(s.workout_day_id)
-  })
-  const weeks = Object.keys(byWeek).sort().reverse()
-  let streak = 0
-  for (const wk of weeks) {
-    if (byWeek[wk].size >= workoutDayCount) streak++
-    else break
-  }
-  return streak
 }
 
 export interface HomeProps {

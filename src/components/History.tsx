@@ -5,6 +5,8 @@ import {
   lightColor, toDateInputValue, weekDateBounds, defaultLogDateForWeek,
   sessionsInWeek, getSessionForWeek,
 } from '../lib/program'
+import { buildWeeklySummary } from '../lib/weeklySummary'
+import WeeklySummaryCard from './WeeklySummaryCard'
 import type { Session, WorkoutDay, WorkoutSkip } from '../types'
 
 interface LogModalState {
@@ -34,6 +36,13 @@ export default function History({ sessions, workoutDays, weekSkips, onBack, onEd
   const weekSessions = useMemo(
     () => sessionsInWeek(sessions, weekMonday).sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()),
     [sessions, weekMonday]
+  )
+
+  const weeklySummary = useMemo(
+    () => isCurrentWeek
+      ? buildWeeklySummary({ sessions, workoutDays, weekSkips, weekMonday })
+      : null,
+    [isCurrentWeek, sessions, workoutDays, weekSkips, weekMonday]
   )
 
   const weekSkipIds = new Set(
@@ -82,6 +91,8 @@ export default function History({ sessions, workoutDays, weekSkips, onBack, onEd
             <ChevronRight size={18} color="#64748B" />
           </button>
         </div>
+
+        {weeklySummary && <WeeklySummaryCard summary={weeklySummary} />}
 
         <div style={{ fontSize: 11, letterSpacing: 2, color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, marginBottom: 10 }}>Week overview</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
