@@ -172,6 +172,7 @@ export default function App() {
       )}
       {screen === 'session' && activeWorkoutDay && (
         <ActiveSession
+          key={resumeActivity?.id ?? `new-${activeWorkoutDay.id}-${sessionLogDate?.toISOString() ?? 'today'}`}
           workoutDay={activeWorkoutDay}
           dayExercises={activeDayExercises}
           exercises={exercises}

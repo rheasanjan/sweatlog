@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Dumbbell, ChevronLeft, Plus, Settings2 } from 'lucide-react'
 import {
   DAY_COLORS, lightColor, weekStartKey, toDateInputValue,
@@ -23,24 +23,41 @@ export interface PickerProps {
   exercises: Exercise[]
   muscleGroups: MuscleGroup[]
   onBack: () => void
-  onSelect: (day: WorkoutDay, logDate: Date) => void
-  onResume: (activity: Activity) => void
+  onSelect: (day: WorkoutDay, logDate: Date) => void | Promise<void>
+  onResume: (activity: Activity) => void | Promise<void>
   onDaysChanged: () => Promise<void>
 }
 
 export async function resolveTemplateSelection(
   day: WorkoutDay,
   logDate: Date,
-  onSelect: (day: WorkoutDay, logDate: Date) => void,
-  onResume: (activity: Activity) => void,
+  onSelect: (day: WorkoutDay, logDate: Date) => void | Promise<void>,
+  onResume: (activity: Activity) => void | Promise<void>,
   findInProgress: (templateId: string) => Promise<Activity | null> = fetchInProgressSession,
 ) {
   const inProgress = await findInProgress(day.id)
   if (inProgress) {
-    onResume(inProgress)
+    await onResume(inProgress)
     return
   }
-  onSelect(day, logDate)
+  await onSelect(day, logDate)
+}
+
+export async function selectTemplateWithLock(
+  lock: { current: boolean },
+  day: WorkoutDay,
+  logDate: Date,
+  onSelect: (day: WorkoutDay, logDate: Date) => void | Promise<void>,
+  onResume: (activity: Activity) => void | Promise<void>,
+  findInProgress: (templateId: string) => Promise<Activity | null> = fetchInProgressSession,
+) {
+  if (lock.current) return
+  lock.current = true
+  try {
+    await resolveTemplateSelection(day, logDate, onSelect, onResume, findInProgress)
+  } finally {
+    lock.current = false
+  }
 }
 
 export default function Picker({
@@ -51,6 +68,7 @@ export default function Picker({
   const [editingDay, setEditingDay] = useState<WorkoutDay | null>(null)
   const [editingExercises, setEditingExercises] = useState<WorkoutDayExercise[]>([])
   const [logDate, setLogDate] = useState(toDateInputValue())
+  const selectingRef = useRef(false)
 
   const logDateObj = useMemo(() => new Date(`${logDate}T12:00:00`), [logDate])
   const selectedWeekKey = weekStartKey(logDateObj)
@@ -66,7 +84,7 @@ export default function Picker({
 
   const handleDayClick = async (day: WorkoutDay) => {
     try {
-      await resolveTemplateSelection(day, logDateObj, onSelect, onResume)
+      await selectTemplateWithLock(selectingRef, day, logDateObj, onSelect, onResume)
     } catch (err) {
       alert('Could not start: ' + (err instanceof Error ? err.message : String(err)))
     }

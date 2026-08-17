@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import Picker, { resolveTemplateSelection } from './Picker'
+import Picker, { resolveTemplateSelection, selectTemplateWithLock } from './Picker'
 import type { Activity, WorkoutTemplate } from '../types'
 
 vi.mock('../lib/supabase', () => ({
@@ -82,5 +82,51 @@ describe('Picker', () => {
 
     expect(onSelect).toHaveBeenCalledWith(template, logDate)
     expect(onResume).not.toHaveBeenCalled()
+  })
+
+  it('ignores another template selection until the first selection finishes', async () => {
+    let finishLookup!: (activity: Activity | null) => void
+    const firstLookup = new Promise<Activity | null>(resolve => {
+      finishLookup = resolve
+    })
+    const lock = { current: false }
+    const onSelect = vi.fn()
+    const onResume = vi.fn()
+    const findInProgress = vi.fn().mockReturnValueOnce(firstLookup).mockResolvedValue(null)
+    const secondTemplate = { ...template, id: 'template-2', name: 'Pull Day' }
+
+    const firstSelection = selectTemplateWithLock(
+      lock,
+      template,
+      new Date('2026-08-17T12:00:00.000Z'),
+      onSelect,
+      onResume,
+      findInProgress,
+    )
+    await selectTemplateWithLock(
+      lock,
+      secondTemplate,
+      new Date('2026-08-17T12:00:00.000Z'),
+      onSelect,
+      onResume,
+      findInProgress,
+    )
+
+    expect(findInProgress).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
+
+    finishLookup(null)
+    await firstSelection
+    await selectTemplateWithLock(
+      lock,
+      secondTemplate,
+      new Date('2026-08-17T12:00:00.000Z'),
+      onSelect,
+      onResume,
+      findInProgress,
+    )
+
+    expect(findInProgress).toHaveBeenCalledTimes(2)
+    expect(onSelect).toHaveBeenCalledTimes(2)
   })
 })
