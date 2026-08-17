@@ -92,6 +92,31 @@ describe('buildWeeklySummary', () => {
     expect(summary.headline).toBe('0 sessions · 0m')
   })
 
+  it('counts multiple completed activities from the same template', () => {
+    const first = session({
+      id: 's1',
+      workout_day_id: 'd1',
+      started_at: '2026-07-07T12:00:00.000Z',
+      duration_mins: 40,
+    })
+    const second = session({
+      id: 's2',
+      workout_day_id: 'd1',
+      started_at: '2026-07-09T12:00:00.000Z',
+      duration_mins: 25,
+    })
+
+    const summary = buildWeeklySummary({
+      sessions: [first, second],
+      weekMonday,
+    })
+
+    expect(summary.sessionCount).toBe(2)
+    expect(summary.totalMins).toBe(65)
+    expect(summary.headline).toContain('2 sessions')
+    expect(summary.headline).toContain('1h 5m')
+  })
+
   it('detects all-time PRs and excludes them from week-over-week beats', () => {
     const prior = session({
       id: 's0',

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildResumedSessionExercises } from './ActiveSession'
+import { buildResumedSessionExercises, initialSessionStartMs } from './ActiveSession'
 import type { Activity, WorkoutDayExercise } from '../types'
 
 vi.mock('../lib/supabase', () => ({
@@ -82,5 +82,47 @@ describe('buildResumedSessionExercises', () => {
         ],
       },
     ])
+  })
+
+  it('uses current plan reps to interpret persisted set values', () => {
+    const changedPlanActivity: Activity = {
+      ...activity,
+      session_sets: [
+        {
+          id: 'set-1',
+          exercise_id: 'exercise-1',
+          exercise_name: 'Bench Press',
+          alt_used: false,
+          set_number: 1,
+          weight_kg: null,
+          reps: null,
+          duration_secs: 45,
+          done: true,
+        },
+      ],
+    }
+
+    const [resumed] = buildResumedSessionExercises(changedPlanActivity, [dayExercise])
+
+    expect(resumed.targetReps).toBe('8–12')
+    expect(resumed.sets[0]).toEqual({
+      setNumber: 1,
+      weight: '',
+      reps: '',
+      repeat: '1',
+      done: true,
+    })
+  })
+})
+
+describe('initialSessionStartMs', () => {
+  it('uses the persisted start time when resuming an activity', () => {
+    expect(initialSessionStartMs(activity, Date.parse('2026-08-17T09:30:00.000Z')))
+      .toBe(Date.parse('2026-08-17T08:00:00.000Z'))
+  })
+
+  it('uses the current time for a new activity', () => {
+    const now = Date.parse('2026-08-17T09:30:00.000Z')
+    expect(initialSessionStartMs(null, now)).toBe(now)
   })
 })

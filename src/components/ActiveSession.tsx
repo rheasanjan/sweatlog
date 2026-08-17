@@ -85,7 +85,7 @@ export function buildResumedSessionExercises(activity: Activity, dayExercises: W
     const first = sortedRows[0]
     const exerciseName = first.exercise_name
     const targetReps = plan?.target_reps || DEFAULT_REPS[exerciseName] || '—'
-    const timed = isTimed(targetReps) || sortedRows.some(row => row.duration_secs != null && row.weight_kg == null)
+    const timed = isTimed(targetReps)
 
     return {
       exerciseId: first.exercise_id || plan?.exercise_id || '',
@@ -109,6 +109,10 @@ export function buildResumedSessionExercises(activity: Activity, dayExercises: W
   })
 }
 
+export function initialSessionStartMs(resumeActivity: Activity | null | undefined, now = Date.now()): number {
+  return resumeActivity ? new Date(resumeActivity.started_at).getTime() : now
+}
+
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export interface ActiveSessionProps {
@@ -129,7 +133,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   const color = workoutDay.color
   const initialLogDate = logDate || (resumeActivity ? new Date(resumeActivity.started_at) : new Date())
   const logDateKey = toDateInputValue(initialLogDate)
-  const startRef = useRef(Date.now())
+  const startRef = useRef(initialSessionStartMs(resumeActivity))
   const sessionIdRef = useRef<string | null>(resumeActivity?.id ?? null)
   const startedAtRef = useRef<string | null>(resumeActivity?.started_at ?? null)
   const pendingSaveRef = useRef<SessionExercise[] | null>(null)
