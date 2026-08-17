@@ -40,9 +40,9 @@ export default function History({ sessions, workoutDays, weekSkips, onBack, onEd
 
   const weeklySummary = useMemo(
     () => isCurrentWeek
-      ? buildWeeklySummary({ sessions, workoutDays, weekSkips, weekMonday })
+      ? buildWeeklySummary({ sessions, weekMonday })
       : null,
-    [isCurrentWeek, sessions, workoutDays, weekSkips, weekMonday]
+    [isCurrentWeek, sessions, weekMonday]
   )
 
   const weekSkipIds = new Set(

@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { weekStartKey } from './program'
 import {
   buildWeeklySummary,
   formatImprovementDelta,
   isBetterSet,
   weeklySummaryCopy,
 } from './weeklySummary'
-import type { Session, SessionSet, WorkoutDay, WorkoutSkip } from '../types'
+import type { Activity, SessionSet } from '../types'
 
 function set(partial: Partial<SessionSet> & Pick<SessionSet, 'exercise_id' | 'exercise_name'>): SessionSet {
   return {
@@ -20,9 +19,14 @@ function set(partial: Partial<SessionSet> & Pick<SessionSet, 'exercise_id' | 'ex
   }
 }
 
-function session(partial: Partial<Session> & Pick<Session, 'id' | 'workout_day_id' | 'started_at'>): Session {
+function session(
+  partial: Partial<Activity> & Pick<Activity, 'id' | 'workout_day_id' | 'started_at'>,
+): Activity {
   return {
-    status: 'finished',
+    category: 'strength',
+    name: 'Push',
+    color: '#2563EB',
+    status: 'completed',
     finished_at: partial.started_at,
     duration_mins: 40,
     note: null,
@@ -30,12 +34,6 @@ function session(partial: Partial<Session> & Pick<Session, 'id' | 'workout_day_i
     ...partial,
   }
 }
-
-const days: WorkoutDay[] = [
-  { id: 'd1', name: 'Push', slug: 'push', color: '#2563EB', subtitle: null, sort_order: 1, is_custom: false },
-  { id: 'd2', name: 'Pull', slug: 'pull', color: '#7C3AED', subtitle: null, sort_order: 2, is_custom: false },
-  { id: 'd3', name: 'Legs', slug: 'legs', color: '#DC2626', subtitle: null, sort_order: 3, is_custom: false },
-]
 
 /** Monday 6 Jul 2026 local noon-ish ISO used as week start reference. */
 const weekMonday = new Date('2026-07-06T12:00:00')
@@ -67,31 +65,31 @@ describe('isBetterSet / formatImprovementDelta', () => {
 
 describe('weeklySummaryCopy', () => {
   it('handles empty, sparse, and rich states', () => {
-    expect(weeklySummaryCopy({ doneCount: 0, dayCount: 5, weekComplete: false, prCount: 0 })).toEqual({
-      headline: '0 of 5 sessions in.',
+    expect(weeklySummaryCopy({ sessionCount: 0, totalMins: 0, prCount: 0 })).toEqual({
+      headline: '0 sessions · 0m',
       subline: 'Log a session to start the week.',
       rich: false,
     })
-    expect(weeklySummaryCopy({ doneCount: 2, dayCount: 5, weekComplete: false, prCount: 0 }).headline)
-      .toBe('2 of 5 sessions in.')
-    expect(weeklySummaryCopy({ doneCount: 4, dayCount: 5, weekComplete: false, prCount: 2 }).headline)
-      .toBe('Strong week — 4/5 in, all-time bests set.')
+    expect(weeklySummaryCopy({ sessionCount: 2, totalMins: 85, prCount: 0 })).toEqual({
+      headline: '2 sessions · 1h 25m',
+      subline: 'Keep logging what you actually did.',
+      rich: false,
+    })
+    expect(weeklySummaryCopy({ sessionCount: 4, totalMins: 165, prCount: 2 })).toEqual({
+      headline: 'Strong week — 4 sessions · 2h 45m',
+      subline: 'All-time bests set this week.',
+      rich: true,
+    })
   })
 })
 
 describe('buildWeeklySummary', () => {
-  it('returns empty sparse state with no sessions', () => {
-    const summary = buildWeeklySummary({
-      sessions: [],
-      workoutDays: days,
-      weekSkips: [],
-      weekMonday,
-    })
-    expect(summary.doneCount).toBe(0)
+  it('returns empty state with no sessions', () => {
+    const summary = buildWeeklySummary({ sessions: [], weekMonday })
+    expect(summary.sessionCount).toBe(0)
+    expect(summary.totalMins).toBe(0)
     expect(summary.prs).toEqual([])
-    expect(summary.weekOverWeekBeats).toEqual([])
-    expect(summary.rich).toBe(false)
-    expect(summary.headline).toBe('0 of 3 sessions in.')
+    expect(summary.headline).toBe('0 sessions · 0m')
   })
 
   it('detects all-time PRs and excludes them from week-over-week beats', () => {
@@ -127,8 +125,6 @@ describe('buildWeeklySummary', () => {
 
     const summary = buildWeeklySummary({
       sessions: [prior, lastWeek, thisWeek],
-      workoutDays: days,
-      weekSkips: [],
       weekMonday,
     })
 
@@ -170,64 +166,11 @@ describe('buildWeeklySummary', () => {
 
     const summary = buildWeeklySummary({
       sessions: [history, lastWeek, thisWeek],
-      workoutDays: days,
-      weekSkips: [],
       weekMonday,
     })
 
     expect(summary.prs).toEqual([])
     expect(summary.weekOverWeekBeats).toEqual(['Curl', 'Squat'])
     expect(summary.rich).toBe(false)
-  })
-
-  it('marks week complete when done + skipped cover all days', () => {
-    const sessions = days.map((d, i) =>
-      session({
-        id: `s${i}`,
-        workout_day_id: d.id,
-        started_at: `2026-07-0${7 + i}T12:00:00.000Z`,
-        session_sets: [set({ exercise_id: `e${i}`, exercise_name: `Ex ${i}`, weight_kg: 40, reps: 8 })],
-      })
-    )
-    // Only 2 sessions; skip the third day
-    const skips: WorkoutSkip[] = [
-      { id: 'sk1', workout_day_id: 'd3', week_start: weekStartKey(weekMonday), note: null },
-    ]
-    const summary = buildWeeklySummary({
-      sessions: sessions.slice(0, 2),
-      workoutDays: days,
-      weekSkips: skips,
-      weekMonday,
-    })
-    expect(summary.doneCount).toBe(2)
-    expect(summary.weekComplete).toBe(true)
-    expect(summary.subline).toContain('Week complete')
-  })
-
-  it('computes streak from consecutive complete weeks', () => {
-    const makeCompleteWeek = (mondayIso: string, prefix: string): Session[] =>
-      days.map((d, i) =>
-        session({
-          id: `${prefix}-${i}`,
-          workout_day_id: d.id,
-          started_at: new Date(new Date(mondayIso).getTime() + i * 86400000).toISOString(),
-          session_sets: [set({ exercise_id: `${prefix}-e`, exercise_name: 'Ex', weight_kg: 50, reps: 8 })],
-        })
-      )
-
-    const sessions = [
-      ...makeCompleteWeek('2026-06-22T12:00:00', 'w1'),
-      ...makeCompleteWeek('2026-06-29T12:00:00', 'w2'),
-      ...makeCompleteWeek('2026-07-06T12:00:00', 'w3'),
-    ]
-
-    const summary = buildWeeklySummary({
-      sessions,
-      workoutDays: days,
-      weekSkips: [],
-      weekMonday,
-    })
-    expect(summary.streak).toBe(3)
-    expect(summary.weekComplete).toBe(true)
   })
 })

@@ -1,10 +1,6 @@
-import {
-  addWeeks,
-  computeStreak,
-  sessionsInWeek,
-  weekStartKey,
-} from './program'
-import type { Session, SessionSet, WorkoutDay, WorkoutSkip } from '../types'
+import { addWeeks, sessionsInWeek, weekStartKey } from './program'
+import { formatTotalDuration, sumDurationMins } from './activityHelpers'
+import type { Activity, SessionSet } from '../types'
 
 export interface WeeklyPrWin {
   exerciseId: string
@@ -13,10 +9,8 @@ export interface WeeklyPrWin {
 }
 
 export interface WeeklySummary {
-  doneCount: number
-  dayCount: number
-  weekComplete: boolean
-  streak: number
+  sessionCount: number
+  totalMins: number
   prs: WeeklyPrWin[]
   weekOverWeekBeats: string[]
   headline: string
@@ -63,7 +57,7 @@ export function formatImprovementDelta(current: SessionSet, baseline: SessionSet
   return `+${cr - br} reps`
 }
 
-function bestsByExercise(sessions: Session[]): Map<string, ExerciseBest> {
+function bestsByExercise(sessions: Activity[]): Map<string, ExerciseBest> {
   const map = new Map<string, ExerciseBest>()
   for (const session of sessions) {
     for (const set of session.session_sets || []) {
@@ -81,24 +75,23 @@ function bestsByExercise(sessions: Session[]): Map<string, ExerciseBest> {
   return map
 }
 
-function sessionsBeforeWeek(sessions: Session[], weekMonday: Date): Session[] {
+function sessionsBeforeWeek(sessions: Activity[], weekMonday: Date): Activity[] {
   const weekKey = weekStartKey(weekMonday)
   return sessions.filter(s => weekStartKey(new Date(s.started_at)) < weekKey)
 }
 
 export function weeklySummaryCopy(input: {
-  doneCount: number
-  dayCount: number
-  weekComplete: boolean
+  sessionCount: number
+  totalMins: number
   prCount: number
 }): { headline: string; subline: string; rich: boolean } {
-  const { doneCount, dayCount, weekComplete, prCount } = input
-  const remaining = Math.max(0, dayCount - doneCount)
+  const { sessionCount, totalMins, prCount } = input
+  const durationLabel = formatTotalDuration(totalMins)
   const rich = prCount > 0
 
-  if (doneCount === 0) {
+  if (sessionCount === 0) {
     return {
-      headline: `0 of ${dayCount} sessions in.`,
+      headline: `0 sessions · ${durationLabel}`,
       subline: 'Log a session to start the week.',
       rich: false,
     }
@@ -106,44 +99,30 @@ export function weeklySummaryCopy(input: {
 
   if (rich) {
     return {
-      headline: `Strong week — ${doneCount}/${dayCount} in, all-time bests set.`,
-      subline: weekComplete
-        ? 'Week complete · every programmed day trained.'
-        : `${remaining} more to go — keep building.`,
+      headline: `Strong week — ${sessionCount} sessions · ${durationLabel}`,
+      subline: 'All-time bests set this week.',
       rich: true,
     }
   }
 
   return {
-    headline: `${doneCount} of ${dayCount} sessions in.`,
-    subline: weekComplete
-      ? 'Week complete · every programmed day trained.'
-      : `${remaining} more to go — on track for a complete week.`,
+    headline: `${sessionCount} sessions · ${durationLabel}`,
+    subline: 'Keep logging what you actually did.',
     rich: false,
   }
 }
 
 export function buildWeeklySummary(input: {
-  sessions: Session[]
-  workoutDays: WorkoutDay[]
-  weekSkips: WorkoutSkip[]
+  sessions: Activity[]
   weekMonday: Date
 }): WeeklySummary {
-  const { sessions, workoutDays, weekSkips, weekMonday } = input
-  const dayCount = workoutDays.length
-  const weekKey = weekStartKey(weekMonday)
+  const { sessions, weekMonday } = input
   const thisWeekSessions = sessionsInWeek(sessions, weekMonday)
   const lastWeekSessions = sessionsInWeek(sessions, addWeeks(weekMonday, -1))
   const priorSessions = sessionsBeforeWeek(sessions, weekMonday)
 
-  const doneIds = new Set(thisWeekSessions.map(s => s.workout_day_id))
-  const skipIds = new Set(
-    (weekSkips || []).filter(s => s.week_start === weekKey).map(s => s.workout_day_id)
-  )
-  const doneCount = doneIds.size
-  const accounted = new Set([...doneIds, ...skipIds])
-  const weekComplete = dayCount > 0 && accounted.size >= dayCount
-  const streak = computeStreak(sessions, dayCount)
+  const sessionCount = thisWeekSessions.length
+  const totalMins = sumDurationMins(thisWeekSessions)
 
   const thisWeekBests = bestsByExercise(thisWeekSessions)
   const priorBests = bestsByExercise(priorSessions)
@@ -171,17 +150,14 @@ export function buildWeeklySummary(input: {
   weekOverWeekBeats.sort((a, b) => a.localeCompare(b))
 
   const copy = weeklySummaryCopy({
-    doneCount,
-    dayCount,
-    weekComplete,
+    sessionCount,
+    totalMins,
     prCount: prs.length,
   })
 
   return {
-    doneCount,
-    dayCount,
-    weekComplete,
-    streak,
+    sessionCount,
+    totalMins,
     prs,
     weekOverWeekBeats,
     headline: copy.headline,

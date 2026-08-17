@@ -6,7 +6,7 @@ export interface WeeklySummaryCardProps {
 }
 
 export default function WeeklySummaryCard({ summary }: Readonly<WeeklySummaryCardProps>) {
-  const { rich, headline, subline, streak, prs, weekOverWeekBeats } = summary
+  const { rich, headline, subline, prs, weekOverWeekBeats } = summary
 
   return (
     <div
@@ -30,20 +30,6 @@ export default function WeeklySummaryCard({ summary }: Readonly<WeeklySummaryCar
         >
           This week
         </div>
-        {streak >= 1 && (
-          <div
-            style={{
-              background: '#0F172A',
-              color: '#F8FAFC',
-              borderRadius: 20,
-              padding: '4px 10px',
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            {streak}-wk streak
-          </div>
-        )}
       </div>
 
       <div style={{ fontSize: 17, fontWeight: 800, color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.3 }}>
