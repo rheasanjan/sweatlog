@@ -5,3 +5,5 @@ dist/
 *.local
 supabase/.temp/
 .vercel
+
+.worktrees/
