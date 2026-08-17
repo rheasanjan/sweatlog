@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildResumedSessionExercises, initialSessionStartMs } from './ActiveSession'
-import type { Activity, WorkoutDayExercise } from '../types'
+import { buildResumedSessionExercises, initialSessionStartMs, mergeSessionExercises } from './ActiveSession'
+import type { Activity, SessionExercise, WorkoutDayExercise } from '../types'
 
 vi.mock('../lib/supabase', () => ({
   createSession: vi.fn(),
@@ -124,5 +124,60 @@ describe('initialSessionStartMs', () => {
   it('uses the current time for a new activity', () => {
     const now = Date.parse('2026-08-17T09:30:00.000Z')
     expect(initialSessionStartMs(null, now)).toBe(now)
+  })
+})
+
+describe('mergeSessionExercises', () => {
+  const bench: WorkoutDayExercise = {
+    id: 'wde-bench',
+    sort_order: 0,
+    target_sets: 3,
+    target_reps: '8–12',
+    exercise_id: 'bench',
+    exercises: { id: 'bench', name: 'Bench Press', alt_name: null, is_custom: false },
+  }
+  const row: WorkoutDayExercise = {
+    id: 'wde-row',
+    sort_order: 1,
+    target_sets: 3,
+    target_reps: '8–12',
+    exercise_id: 'row',
+    exercises: { id: 'row', name: 'Cable Row', alt_name: null, is_custom: false },
+  }
+  const fly: WorkoutDayExercise = {
+    id: 'wde-fly',
+    sort_order: 2,
+    target_sets: 3,
+    target_reps: '12–15',
+    exercise_id: 'fly',
+    exercises: { id: 'fly', name: 'Cable Fly', alt_name: null, is_custom: false },
+  }
+
+  const sessionEx = (id: string, name: string): SessionExercise => ({
+    exerciseId: id,
+    exerciseName: name,
+    altName: null,
+    altUsed: false,
+    targetSets: 3,
+    targetReps: '8–12',
+    lastBest: null,
+    sets: [{ setNumber: 1, weight: '40', reps: '8', repeat: '1', done: true }],
+  })
+
+  it('does not resurrect exercises removed from the session when the plan refreshes', () => {
+    // User removed Bench from today's session; plan still has Bench + Row.
+    // Adding Fly to the plan should keep Row and add Fly, but not bring Bench back.
+    const prev = [sessionEx('row', 'Cable Row')]
+    const merged = mergeSessionExercises(
+      prev,
+      [bench, row, fly],
+      [],
+      'day-1',
+      new Date('2026-08-17T12:00:00'),
+      new Set(['bench']),
+    )
+
+    expect(merged.map(ex => ex.exerciseId)).toEqual(['row', 'fly'])
+    expect(merged.find(ex => ex.exerciseId === 'row')?.sets[0].weight).toBe('40')
   })
 })

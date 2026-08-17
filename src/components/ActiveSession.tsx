@@ -43,26 +43,29 @@ function buildSessionExercises(dayExercises: WorkoutDayExercise[], sessions: Ses
   })
 }
 
-function mergeSessionExercises(prev: SessionExercise[], dayExercises: WorkoutDayExercise[], sessions: Session[], workoutDayId: string, logDate: Date): SessionExercise[] {
+/** Plan refreshes add new exercises only; `removedIds` keeps session removals sticky. */
+function mergeSessionExercises(
+  prev: SessionExercise[],
+  dayExercises: WorkoutDayExercise[],
+  sessions: Session[],
+  workoutDayId: string,
+  logDate: Date,
+  removedIds: ReadonlySet<string> = new Set(),
+): SessionExercise[] {
   const fromPlan = buildSessionExercises(dayExercises, sessions, workoutDayId, logDate)
-  const merged: SessionExercise[] = []
-  const seen = new Set<string>()
+  const seen = new Set(prev.map(ex => ex.exerciseId).filter(Boolean))
+  const merged = [...prev]
 
   for (const planEx of fromPlan) {
-    const existing = prev.find(p => p.exerciseId === planEx.exerciseId)
-    merged.push(existing || planEx)
+    if (!planEx.exerciseId || seen.has(planEx.exerciseId) || removedIds.has(planEx.exerciseId)) continue
+    merged.push(planEx)
     seen.add(planEx.exerciseId)
-  }
-
-  for (const ex of prev) {
-    if (ex.exerciseId && !seen.has(ex.exerciseId)) {
-      merged.push(ex)
-      seen.add(ex.exerciseId)
-    }
   }
 
   return merged
 }
+
+export { mergeSessionExercises }
 
 export function buildResumedSessionExercises(activity: Activity, dayExercises: WorkoutDayExercise[]): SessionExercise[] {
   const groups = new Map<string, { rows: SessionSet[]; plan: WorkoutDayExercise | undefined }>()
@@ -154,6 +157,9 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
       ? resumed
       : buildSessionExercises(dayExercises, sessions, workoutDay.id, logDateForHistory)
   })
+  const [removedExerciseIds, setRemovedExerciseIds] = useState<Set<string>>(() => new Set())
+  const removedExerciseIdsRef = useRef(removedExerciseIds)
+  removedExerciseIdsRef.current = removedExerciseIds
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -186,7 +192,14 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   useEffect(() => {
     const logDateObj = new Date(`${logDateStr}T12:00:00`)
     setSessionExercises(prev =>
-      mergeSessionExercises(prev, dayExercises, sessionsRef.current, workoutDay.id, logDateObj)
+      mergeSessionExercises(
+        prev,
+        dayExercises,
+        sessionsRef.current,
+        workoutDay.id,
+        logDateObj,
+        removedExerciseIdsRef.current,
+      )
     )
   }, [workoutDay.id, dayExercises, logDateStr])
 
@@ -277,6 +290,14 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   }
 
   const appendExercise = (exerciseId: string, exerciseName: string, altName: string | null, numSets: number, targetReps: string) => {
+    if (exerciseId) {
+      setRemovedExerciseIds(prev => {
+        if (!prev.has(exerciseId)) return prev
+        const next = new Set(prev)
+        next.delete(exerciseId)
+        return next
+      })
+    }
     setSessionExercises(prev => {
       const next: SessionExercise[] = [
         ...prev,
@@ -330,6 +351,9 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     const ex = sessionExercises[exIdx]
     const hasLogged = ex.sets.some(s => s.done || s.weight || s.reps)
     if (hasLogged && !window.confirm(`Remove ${ex.exerciseName} from today's session?`)) return
+    if (ex.exerciseId) {
+      setRemovedExerciseIds(prev => new Set(prev).add(ex.exerciseId))
+    }
     setSessionExercises(prev => {
       const next = prev.filter((_, i) => i !== exIdx)
       scheduleSave(next, true)
