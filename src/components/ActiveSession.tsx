@@ -14,6 +14,8 @@ import type {
   FinishedSession,
   PersonalRecord,
   SetInput,
+  Activity,
+  SessionSet,
 } from '../types'
 
 function buildSessionExercises(dayExercises: WorkoutDayExercise[], sessions: Session[], workoutDayId: string, logDate: Date): SessionExercise[] {
@@ -62,6 +64,51 @@ function mergeSessionExercises(prev: SessionExercise[], dayExercises: WorkoutDay
   return merged
 }
 
+export function buildResumedSessionExercises(activity: Activity, dayExercises: WorkoutDayExercise[]): SessionExercise[] {
+  const groups = new Map<string, { rows: SessionSet[]; plan: WorkoutDayExercise | undefined }>()
+
+  for (const row of activity.session_sets || []) {
+    const key = row.exercise_id || row.exercise_name
+    const existing = groups.get(key)
+    if (existing) {
+      existing.rows.push(row)
+    } else {
+      groups.set(key, {
+        rows: [row],
+        plan: dayExercises.find(dayExercise => dayExercise.exercise_id === row.exercise_id),
+      })
+    }
+  }
+
+  return [...groups.values()].map(({ rows, plan }) => {
+    const sortedRows = [...rows].sort((a, b) => a.set_number - b.set_number)
+    const first = sortedRows[0]
+    const exerciseName = first.exercise_name
+    const targetReps = plan?.target_reps || DEFAULT_REPS[exerciseName] || '—'
+    const timed = isTimed(targetReps) || sortedRows.some(row => row.duration_secs != null && row.weight_kg == null)
+
+    return {
+      exerciseId: first.exercise_id || plan?.exercise_id || '',
+      exerciseName,
+      altName: plan?.exercises?.alt_name || null,
+      altUsed: first.alt_used,
+      targetSets: plan?.target_sets || sortedRows.length,
+      targetReps,
+      lastBest: null,
+      lastWeekLabel: null,
+      sets: sortedRows.map(row => ({
+        setNumber: row.set_number,
+        weight: timed
+          ? (row.duration_secs != null ? String(row.duration_secs) : '')
+          : (row.weight_kg != null ? String(row.weight_kg) : ''),
+        reps: timed ? '' : (row.reps != null ? String(row.reps) : ''),
+        repeat: '1',
+        done: row.done,
+      })),
+    }
+  })
+}
+
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export interface ActiveSessionProps {
@@ -71,19 +118,20 @@ export interface ActiveSessionProps {
   sessions: Session[]
   muscleGroups: MuscleGroup[]
   logDate: Date | null
+  resumeActivity?: Activity | null
   onBack: () => void
   onFinished: (session: FinishedSession) => void
   onExerciseAdded?: () => Promise<void>
   onPlanChanged?: () => Promise<void>
 }
 
-export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, onBack, onFinished, onExerciseAdded, onPlanChanged }: ActiveSessionProps) {
+export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, resumeActivity, onBack, onFinished, onExerciseAdded, onPlanChanged }: ActiveSessionProps) {
   const color = workoutDay.color
-  const initialLogDate = logDate || new Date()
+  const initialLogDate = logDate || (resumeActivity ? new Date(resumeActivity.started_at) : new Date())
   const logDateKey = toDateInputValue(initialLogDate)
   const startRef = useRef(Date.now())
-  const sessionIdRef = useRef<string | null>(null)
-  const startedAtRef = useRef<string | null>(null)
+  const sessionIdRef = useRef<string | null>(resumeActivity?.id ?? null)
+  const startedAtRef = useRef<string | null>(resumeActivity?.started_at ?? null)
   const pendingSaveRef = useRef<SessionExercise[] | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionsRef = useRef(sessions)
@@ -94,9 +142,14 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
 
   const logDateForHistory = new Date(`${logDateKey}T12:00:00`)
 
-  const [sessionExercises, setSessionExercises] = useState<SessionExercise[]>(() =>
-    buildSessionExercises(dayExercises, sessions, workoutDay.id, logDateForHistory)
-  )
+  const [sessionExercises, setSessionExercises] = useState<SessionExercise[]>(() => {
+    const resumed = resumeActivity
+      ? buildResumedSessionExercises(resumeActivity, dayExercises)
+      : []
+    return resumed.length
+      ? resumed
+      : buildSessionExercises(dayExercises, sessions, workoutDay.id, logDateForHistory)
+  })
   const [restTimer, setRestTimer] = useState<number | null>(null)
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -134,6 +187,14 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   }, [workoutDay.id, dayExercises, logDateStr])
 
   useEffect(() => {
+    if (resumeActivity) {
+      sessionIdRef.current = resumeActivity.id
+      startedAtRef.current = resumeActivity.started_at
+      return () => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      }
+    }
+
     const startedAt = dateAtNoon(logDateKey)
     createSession(
       { id: workoutDay.id, name: workoutDay.name, color: workoutDay.color },
@@ -149,7 +210,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [workoutDay.id, logDateKey, persistSession])
+  }, [workoutDay.id, logDateKey, persistSession, resumeActivity])
 
   const handleLogDateChange = async (value: string) => {
     setLogDateStr(value)

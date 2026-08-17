@@ -2,11 +2,11 @@ import { useState, useMemo } from 'react'
 import { Dumbbell, ChevronLeft, Plus, Settings2 } from 'lucide-react'
 import {
   DAY_COLORS, lightColor, weekStartKey, toDateInputValue,
-  getSessionForWeek, formatSessionDate, formatWeekRange, startOfWeek,
+  formatWeekRange, startOfWeek,
 } from '../lib/program'
-import { createWorkoutDay, fetchWorkoutDayExercises, skipWorkoutForWeek, unskipWorkoutForWeek } from '../lib/supabase'
+import { createWorkoutDay, fetchInProgressSession, fetchWorkoutDayExercises } from '../lib/supabase'
 import WorkoutDayEditor from './WorkoutDayEditor'
-import type { WorkoutDay, Session, WorkoutSkip, Exercise, MuscleGroup, WorkoutDayExercise } from '../types'
+import type { Activity, WorkoutDay, Session, Exercise, MuscleGroup, WorkoutDayExercise } from '../types'
 
 function daysAgo(dateStr: string | null | undefined): string {
   if (!dateStr) return 'Never done yet'
@@ -20,23 +20,36 @@ function daysAgo(dateStr: string | null | undefined): string {
 export interface PickerProps {
   workoutDays: WorkoutDay[]
   sessions: Session[]
-  weekSkips: WorkoutSkip[]
   exercises: Exercise[]
   muscleGroups: MuscleGroup[]
   onBack: () => void
   onSelect: (day: WorkoutDay, logDate: Date) => void
-  onEditSession: (session: Session) => void
+  onResume: (activity: Activity) => void
   onDaysChanged: () => Promise<void>
 }
 
+export async function resolveTemplateSelection(
+  day: WorkoutDay,
+  logDate: Date,
+  onSelect: (day: WorkoutDay, logDate: Date) => void,
+  onResume: (activity: Activity) => void,
+  findInProgress: (templateId: string) => Promise<Activity | null> = fetchInProgressSession,
+) {
+  const inProgress = await findInProgress(day.id)
+  if (inProgress) {
+    onResume(inProgress)
+    return
+  }
+  onSelect(day, logDate)
+}
+
 export default function Picker({
-  workoutDays, sessions, weekSkips, exercises, muscleGroups,
-  onBack, onSelect, onEditSession, onDaysChanged,
+  workoutDays, sessions, exercises, muscleGroups,
+  onBack, onSelect, onResume, onDaysChanged,
 }: PickerProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [editingDay, setEditingDay] = useState<WorkoutDay | null>(null)
   const [editingExercises, setEditingExercises] = useState<WorkoutDayExercise[]>([])
-  const [skipSaving, setSkipSaving] = useState<string | null>(null)
   const [logDate, setLogDate] = useState(toDateInputValue())
 
   const logDateObj = useMemo(() => new Date(`${logDate}T12:00:00`), [logDate])
@@ -45,24 +58,18 @@ export default function Picker({
   const loggingCurrentWeek = selectedWeekKey === currentWeekKey
   const selectedWeekLabel = formatWeekRange(startOfWeek(logDateObj))
 
-  const skippedInWeek = new Set(
-    (weekSkips || []).filter(s => s.week_start === selectedWeekKey).map(s => s.workout_day_id)
-  )
-
   const lastSessionFor = (workoutDayId: string): Session | null => {
     const matches = sessions.filter(s => s.workout_day_id === workoutDayId && s.finished_at)
     if (!matches.length) return null
     return matches.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
   }
 
-  const handleDayClick = (day: WorkoutDay) => {
-    if (skippedInWeek.has(day.id)) return
-    const existing = getSessionForWeek(sessions, day.id, logDateObj)
-    if (existing) {
-      onEditSession(existing)
-      return
+  const handleDayClick = async (day: WorkoutDay) => {
+    try {
+      await resolveTemplateSelection(day, logDateObj, onSelect, onResume)
+    } catch (err) {
+      alert('Could not start: ' + (err instanceof Error ? err.message : String(err)))
     }
-    onSelect(day, logDateObj)
   }
 
   const openEditor = async (day: WorkoutDay) => {
@@ -75,34 +82,6 @@ export default function Picker({
     await onDaysChanged()
     setShowCreate(false)
     await openEditor(day)
-  }
-
-  const handleSkip = async (day: WorkoutDay, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (skipSaving) return
-    setSkipSaving(day.id)
-    try {
-      await skipWorkoutForWeek(day.id, currentWeekKey)
-      await onDaysChanged()
-    } catch (err) {
-      alert('Could not skip: ' + (err instanceof Error ? err.message : String(err)))
-    } finally {
-      setSkipSaving(null)
-    }
-  }
-
-  const handleUnskip = async (day: WorkoutDay, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (skipSaving) return
-    setSkipSaving(day.id)
-    try {
-      await unskipWorkoutForWeek(day.id, currentWeekKey)
-      await onDaysChanged()
-    } catch (err) {
-      alert('Could not undo skip: ' + (err instanceof Error ? err.message : String(err)))
-    } finally {
-      setSkipSaving(null)
-    }
   }
 
   return (
@@ -131,47 +110,33 @@ export default function Picker({
           </div>
         </div>
         <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16, lineHeight: 1.6 }}>
-          Pick a workout day. Status below reflects the week of your selected date — not always this week.
+          Pick a workout template to start a new session or resume one in progress.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {workoutDays.map(day => {
             const last = lastSessionFor(day.id)
-            const weekSession = getSessionForWeek(sessions, day.id, logDateObj)
-            const done = !!weekSession
-            const skipped = skippedInWeek.has(day.id)
             const light = lightColor(day.color)
-            const saving = skipSaving === day.id
             return (
-              <div key={day.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div key={day.id}>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => handleDayClick(day)}
-                    disabled={skipped}
                     style={{
                       flex: 1, textAlign: 'left', background: '#fff',
-                      border: `1.5px solid ${done ? day.color : skipped ? '#CBD5E1' : '#E2E8F0'}`,
+                      border: '1.5px solid #E2E8F0',
                       borderRadius: 14, padding: '16px',
-                      cursor: skipped ? 'default' : 'pointer',
+                      cursor: 'pointer',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                      opacity: skipped ? 0.75 : 1,
                     }}
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{day.name}</span>
-                        {done && weekSession && (
-                          <span style={{ background: light, color: day.color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>
-                            {loggingCurrentWeek ? 'DONE THIS WEEK' : `LOGGED ${formatSessionDate(weekSession.started_at)}`}
-                          </span>
-                        )}
-                        {skipped && !done && (
-                          <span style={{ background: '#F1F5F9', color: '#94A3B8', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>SKIPPED</span>
-                        )}
                       </div>
                       {day.subtitle && <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>{day.subtitle}</div>}
                       <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-                        {done ? 'Tap to edit' : daysAgo(last?.started_at)}
+                        {daysAgo(last?.started_at)}
                       </div>
                     </div>
                     <div style={{ width: 38, height: 38, borderRadius: '50%', background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: 12 }}>
@@ -186,25 +151,6 @@ export default function Picker({
                     <Settings2 size={18} color="#64748B" />
                   </button>
                 </div>
-                {loggingCurrentWeek && !done && (
-                  skipped ? (
-                    <button
-                      onClick={e => handleUnskip(day, e)}
-                      disabled={saving}
-                      style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '0 4px' }}
-                    >
-                      {saving ? 'Saving…' : 'Undo skip — I\'ll do it this week'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={e => handleSkip(day, e)}
-                      disabled={saving}
-                      style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#94A3B8', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '0 4px' }}
-                    >
-                      {saving ? 'Saving…' : 'Not doing this workout this week'}
-                    </button>
-                  )
-                )}
               </div>
             )
           })}
