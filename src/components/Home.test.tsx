@@ -29,28 +29,27 @@ const activity: Activity = {
 }
 
 describe('Home', () => {
-  it('renders activity stats, template shortcuts, and activity snapshots', () => {
+  it('renders activity stats and recent activity without template shortcuts', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-17T12:00:00.000Z'))
 
     const html = renderToStaticMarkup(
       <Home
-        templates={[template]}
         activities={[activity]}
         bodyLog={[]}
         onStart={() => undefined}
-        onStartTemplate={() => undefined}
         onEditSession={() => undefined}
       />,
     )
 
     expect(html).toContain('1 sessions')
-    expect(html).toContain('Templates')
+    expect(html).toContain('Log a Workout')
     expect(html).toContain('Recent Activity')
     expect(html).toContain('Upper Body')
     expect(html).toContain('border-left:3px solid #7C3AED')
+    expect(html).not.toContain('Templates')
+    expect(html).not.toContain('Push Day')
     expect(html).not.toContain('Streak')
-    expect(html).not.toContain('This Week</div><div')
 
     vi.useRealTimers()
   })

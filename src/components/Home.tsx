@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Dumbbell } from 'lucide-react'
-import { lightColor, startOfWeek } from '../lib/program'
-import type { Activity, BodyLogEntry, WorkoutTemplate } from '../types'
+import { startOfWeek } from '../lib/program'
+import type { Activity, BodyLogEntry } from '../types'
 
 function daysAgo(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null
@@ -13,15 +13,13 @@ function daysAgo(dateStr: string | null | undefined): string | null {
 }
 
 export interface HomeProps {
-  templates: WorkoutTemplate[]
   activities: Activity[]
   bodyLog: BodyLogEntry[]
   onStart: () => void
-  onStartTemplate: (template: WorkoutTemplate) => void
   onEditSession: (session: Activity) => void
 }
 
-export default function Home({ templates, activities, bodyLog, onStart, onStartTemplate, onEditSession }: HomeProps) {
+export default function Home({ activities, bodyLog, onStart, onEditSession }: HomeProps) {
   const weekStart = startOfWeek()
   const thisWeekFinished = activities.filter(
     activity => activity.status === 'completed' && new Date(activity.started_at) >= weekStart,
@@ -32,8 +30,6 @@ export default function Home({ templates, activities, bodyLog, onStart, onStartT
     : '—'
 
   const recent = [...activities].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()).slice(0, 5)
-
-  const gridCols = Math.min(templates.length, 5)
 
   return (
     <div>
@@ -47,43 +43,6 @@ export default function Home({ templates, activities, bodyLog, onStart, onStartT
       </div>
 
       <div style={{ padding: '20px 16px' }}>
-        <SectionLabel>Templates</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: 8, marginBottom: 24 }}>
-          {templates.map(day => {
-            const light = lightColor(day.color)
-            return (
-              <button
-                type="button"
-                key={day.id}
-                onClick={() => onStartTemplate(day)}
-                style={{
-                  background: light,
-                  border: `1.5px solid ${day.color}`,
-                  borderRadius: 12,
-                  padding: '10px 4px',
-                  textAlign: 'center',
-                  transition: 'all 0.15s',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{
-                  width: 24, height: 24, borderRadius: '50%',
-                  background: day.color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 6px',
-                }} />
-                <div style={{
-                  fontSize: 10, fontWeight: 700,
-                  color: day.color,
-                  lineHeight: 1.2,
-                }}>
-                  {day.name.split(' ')[0]}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
         <button
           onClick={onStart}
           style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 14, padding: '16px', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginBottom: 28 }}
@@ -126,13 +85,12 @@ export default function Home({ templates, activities, bodyLog, onStart, onStartT
 interface StatProps {
   value: string
   label: string
-  highlight?: boolean
 }
 
-function Stat({ value, label, highlight }: StatProps) {
+function Stat({ value, label }: StatProps) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 16, fontWeight: 800, color: highlight ? '#FCD34D' : '#E2E8F0' }}>{value}</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: '#E2E8F0' }}>{value}</div>
       <div style={{ fontSize: 10, color: '#64748B', letterSpacing: 1 }}>{label.toUpperCase()}</div>
     </div>
   )
