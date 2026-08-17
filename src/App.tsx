@@ -132,11 +132,11 @@ export default function App() {
     <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", background: '#F8FAFC', minHeight: '100vh', color: '#0F172A', paddingBottom: hideBottomNav ? 0 : 70 }}>
       {screen === 'home' && (
         <Home
-          workoutDays={workoutDays}
-          sessions={sessions}
+          templates={workoutDays}
+          activities={sessions}
           bodyLog={bodyLog}
-          weekSkips={weekSkips}
           onStart={() => setScreen('picker')}
+          onStartTemplate={(day) => startSession(day, new Date(), 'home')}
           onEditSession={(session) => openSessionEdit(session, 'home')}
         />
       )}

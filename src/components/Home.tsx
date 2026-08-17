@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { Dumbbell, Check, Minus } from 'lucide-react'
-import { lightColor, startOfWeek, computeStreak } from '../lib/program'
-import type { BodyLogEntry, Session, WorkoutDay, WorkoutSkip } from '../types'
+import { Dumbbell } from 'lucide-react'
+import { lightColor, startOfWeek } from '../lib/program'
+import type { Activity, BodyLogEntry, WorkoutTemplate } from '../types'
 
 function daysAgo(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null
@@ -13,33 +13,27 @@ function daysAgo(dateStr: string | null | undefined): string | null {
 }
 
 export interface HomeProps {
-  workoutDays: WorkoutDay[]
-  sessions: Session[]
+  templates: WorkoutTemplate[]
+  activities: Activity[]
   bodyLog: BodyLogEntry[]
-  weekSkips: WorkoutSkip[]
   onStart: () => void
-  onEditSession: (session: Session) => void
+  onStartTemplate: (template: WorkoutTemplate) => void
+  onEditSession: (session: Activity) => void
 }
 
-export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStart, onEditSession }: HomeProps) {
+export default function Home({ templates, activities, bodyLog, onStart, onStartTemplate, onEditSession }: HomeProps) {
   const weekStart = startOfWeek()
-  const weekKey = weekStart.toISOString().slice(0, 10)
-  const thisWeek = sessions.filter(s => new Date(s.started_at) >= weekStart)
-  const doneThisWeek = new Set(thisWeek.map(s => s.workout_day_id))
-  const skippedThisWeek = new Set(
-    (weekSkips || []).filter(s => s.week_start === weekKey).map(s => s.workout_day_id)
+  const thisWeekFinished = activities.filter(
+    activity => activity.status === 'completed' && new Date(activity.started_at) >= weekStart,
   )
-  const dayCount = workoutDays.length
-  const accountedFor = new Set([...doneThisWeek, ...skippedThisWeek])
 
   const latestWeight = bodyLog.length > 0
     ? [...bodyLog].sort((a, b) => b.date.localeCompare(a.date))[0].weight_kg
     : '—'
 
-  const streak = computeStreak(sessions, dayCount)
-  const recent = [...sessions].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()).slice(0, 5)
+  const recent = [...activities].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()).slice(0, 5)
 
-  const gridCols = Math.min(dayCount, 5)
+  const gridCols = Math.min(templates.length, 5)
 
   return (
     <div>
@@ -48,48 +42,44 @@ export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStar
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#F8FAFC', letterSpacing: -0.5 }}>Sweatlog</h1>
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 28 }}>
           <Stat value={latestWeight !== '—' ? `${latestWeight}kg` : '—'} label="Weight" />
-          <Stat value={`${accountedFor.size}/${dayCount}`} label="This Week" />
-          <Stat value={`${streak}wk`} label="Streak" highlight={streak > 0} />
+          <Stat value={`${thisWeekFinished.length} sessions`} label="This Week" />
         </div>
       </div>
 
       <div style={{ padding: '20px 16px' }}>
-        <SectionLabel>This Week</SectionLabel>
+        <SectionLabel>Templates</SectionLabel>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: 8, marginBottom: 24 }}>
-          {workoutDays.map(day => {
-            const done = doneThisWeek.has(day.id)
-            const skipped = skippedThisWeek.has(day.id)
+          {templates.map(day => {
             const light = lightColor(day.color)
             return (
-              <div
+              <button
+                type="button"
                 key={day.id}
+                onClick={() => onStartTemplate(day)}
                 style={{
-                  background: done ? light : skipped ? '#F8FAFC' : '#fff',
-                  border: `1.5px solid ${done ? day.color : skipped ? '#CBD5E1' : '#E2E8F0'}`,
+                  background: light,
+                  border: `1.5px solid ${day.color}`,
                   borderRadius: 12,
                   padding: '10px 4px',
                   textAlign: 'center',
                   transition: 'all 0.15s',
-                  opacity: skipped ? 0.85 : 1,
+                  cursor: 'pointer',
                 }}
               >
                 <div style={{
                   width: 24, height: 24, borderRadius: '50%',
-                  background: done ? day.color : skipped ? '#E2E8F0' : '#F1F5F9',
+                  background: day.color,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 6px',
-                }}>
-                  {done && <Check size={13} color="#fff" strokeWidth={3} />}
-                  {skipped && !done && <Minus size={13} color="#94A3B8" strokeWidth={3} />}
-                </div>
+                }} />
                 <div style={{
                   fontSize: 10, fontWeight: 700,
-                  color: done ? day.color : skipped ? '#94A3B8' : '#64748B',
+                  color: day.color,
                   lineHeight: 1.2,
                 }}>
                   {day.name.split(' ')[0]}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -101,14 +91,14 @@ export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStar
           <Dumbbell size={18} /> Log a Workout
         </button>
 
-        <SectionLabel>Recent Sessions</SectionLabel>
+        <SectionLabel>Recent Activity</SectionLabel>
         {recent.length === 0 ? (
           <EmptyCard text="No sessions yet. Start your first one above." />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recent.map(s => {
               const day = s.workout_days
-              const color = day?.color || '#2563EB'
+              const color = s.color || day?.color || '#2563EB'
               const setsLogged = (s.session_sets || []).filter(st => st.done).length
               return (
                 <button
@@ -117,7 +107,7 @@ export default function Home({ workoutDays, sessions, bodyLog, weekSkips, onStar
                   style={{ textAlign: 'left', background: '#fff', borderRadius: 10, padding: '12px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: 'none', borderLeft: `3px solid ${color}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{day?.name || 'Workout'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{s.name || day?.name || 'Workout'}</div>
                     <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
                       {daysAgo(s.started_at)} · {setsLogged} sets{s.duration_mins ? ` · ${s.duration_mins}min` : ''}
                     </div>
