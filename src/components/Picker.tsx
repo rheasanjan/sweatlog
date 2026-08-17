@@ -201,6 +201,11 @@ export default function Picker({
             setEditingExercises(exs)
             await onDaysChanged()
           }}
+          onDeleted={async () => {
+            setEditingDay(null)
+            setEditingExercises([])
+            await onDaysChanged()
+          }}
         />
       )}
     </div>

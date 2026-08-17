@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { DEFAULT_SETS, DEFAULT_REPS } from '../lib/program'
-import { addCustomExercise, addExerciseToWorkoutDay, removeExerciseFromWorkoutDay } from '../lib/supabase'
+import { addCustomExercise, addExerciseToWorkoutDay, deleteWorkoutDay, removeExerciseFromWorkoutDay } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
 import type { WorkoutDay, WorkoutDayExercise, Exercise, MuscleGroup } from '../types'
 
@@ -12,9 +12,10 @@ export interface WorkoutDayEditorProps {
   muscleGroups: MuscleGroup[]
   onClose: () => void
   onUpdated: () => Promise<void>
+  onDeleted?: () => Promise<void> | void
 }
 
-export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, muscleGroups, onClose, onUpdated }: WorkoutDayEditorProps) {
+export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, muscleGroups, onClose, onUpdated, onDeleted }: WorkoutDayEditorProps) {
   const [showPicker, setShowPicker] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -75,6 +76,21 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
     }
   }
 
+  const handleDeleteTemplate = async () => {
+    if (saving || !workoutDay.is_custom) return
+    if (!window.confirm(`Delete template “${workoutDay.name}”? Past sessions stay in History.`)) return
+    setSaving(true)
+    try {
+      await deleteWorkoutDay(workoutDay.id)
+      await onDeleted?.()
+      onClose()
+    } catch (err) {
+      alert('Could not delete template: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
@@ -112,6 +128,17 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
         >
           <Plus size={16} /> Add Exercise
         </button>
+
+        {workoutDay.is_custom && (
+          <button
+            type="button"
+            onClick={handleDeleteTemplate}
+            disabled={saving}
+            style={{ width: '100%', marginTop: 12, padding: '12px', borderRadius: 12, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#DC2626', fontWeight: 700, fontSize: 13, cursor: saving ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            <Trash2 size={16} /> Delete template
+          </button>
+        )}
       </div>
 
       {showPicker && (

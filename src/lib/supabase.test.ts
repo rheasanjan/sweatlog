@@ -9,7 +9,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: createClient.mockReturnValue({ from }),
 }))
 
-import { createSession, fetchInProgressSession } from './supabase'
+import { createSession, deleteWorkoutDay, fetchInProgressSession } from './supabase'
 
 describe('activity session persistence', () => {
   beforeEach(() => {
@@ -80,5 +80,56 @@ describe('activity session persistence', () => {
     expect(order).toHaveBeenCalledWith('started_at', { ascending: false })
     expect(limit).toHaveBeenCalledWith(1)
     expect(result).toEqual(activity)
+  })
+})
+
+describe('deleteWorkoutDay', () => {
+  beforeEach(() => {
+    from.mockReset()
+  })
+
+  it('rejects non-custom templates', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: 'seed-1', is_custom: false, name: 'Push' },
+      error: null,
+    })
+    const eq = vi.fn().mockReturnValue({ maybeSingle })
+    const select = vi.fn().mockReturnValue({ eq })
+    from.mockReturnValue({ select })
+
+    await expect(deleteWorkoutDay('seed-1')).rejects.toThrow('Only custom templates can be deleted')
+    expect(from).toHaveBeenCalledWith('workout_days')
+  })
+
+  it('unlinks sessions then deletes a custom template', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: 'custom-1', is_custom: true, name: 'Apartment Push' },
+      error: null,
+    })
+    const fetchEq = vi.fn().mockReturnValue({ maybeSingle })
+    const fetchSelect = vi.fn().mockReturnValue({ eq: fetchEq })
+
+    const unlinkEq = vi.fn().mockResolvedValue({ error: null })
+    const update = vi.fn().mockReturnValue({ eq: unlinkEq })
+
+    const deleteSelect = vi.fn().mockResolvedValue({ data: [{ id: 'custom-1' }], error: null })
+    const deleteCustomEq = vi.fn().mockReturnValue({ select: deleteSelect })
+    const deleteIdEq = vi.fn().mockReturnValue({ eq: deleteCustomEq })
+    const del = vi.fn().mockReturnValue({ eq: deleteIdEq })
+
+    from
+      .mockReturnValueOnce({ select: fetchSelect })
+      .mockReturnValueOnce({ update })
+      .mockReturnValueOnce({ delete: del })
+
+    await deleteWorkoutDay('custom-1')
+
+    expect(from).toHaveBeenNthCalledWith(1, 'workout_days')
+    expect(from).toHaveBeenNthCalledWith(2, 'sessions')
+    expect(update).toHaveBeenCalledWith({ workout_day_id: null })
+    expect(unlinkEq).toHaveBeenCalledWith('workout_day_id', 'custom-1')
+    expect(from).toHaveBeenNthCalledWith(3, 'workout_days')
+    expect(deleteIdEq).toHaveBeenCalledWith('id', 'custom-1')
+    expect(deleteCustomEq).toHaveBeenCalledWith('is_custom', true)
   })
 })

@@ -159,12 +159,30 @@ export async function createWorkoutDay({
 }
 
 export async function deleteWorkoutDay(workoutDayId: string): Promise<void> {
-  const { error } = await supabase
+  const { data: day, error: fetchError } = await supabase
+    .from('workout_days')
+    .select('id, is_custom, name')
+    .eq('id', workoutDayId)
+    .maybeSingle()
+  if (fetchError) throw fetchError
+  if (!day) throw new Error('Template not found')
+  if (!day.is_custom) throw new Error('Only custom templates can be deleted')
+
+  // Keep past activities; they already store name/color snapshots.
+  const { error: unlinkError } = await supabase
+    .from('sessions')
+    .update({ workout_day_id: null })
+    .eq('workout_day_id', workoutDayId)
+  if (unlinkError) throw unlinkError
+
+  const { data: deleted, error } = await supabase
     .from('workout_days')
     .delete()
     .eq('id', workoutDayId)
     .eq('is_custom', true)
+    .select('id')
   if (error) throw error
+  if (!deleted?.length) throw new Error('Could not delete template')
 }
 
 export async function fetchWorkoutDayExercises(workoutDayId: string): Promise<WorkoutDayExercise[]> {
