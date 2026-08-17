@@ -20,7 +20,9 @@ export interface Exercise {
   exercise_muscle_groups?: ExerciseMuscleGroup[]
 }
 
-export interface WorkoutDay {
+export type ActivityCategory = 'strength' | 'cardio' | 'sport' | 'mobility'
+
+export interface WorkoutTemplate {
   id: string
   name: string
   slug: string
@@ -29,6 +31,9 @@ export interface WorkoutDay {
   sort_order: number
   is_custom: boolean
 }
+
+/** @deprecated Prefer WorkoutTemplate — alias during Phase 1 migration */
+export type WorkoutDay = WorkoutTemplate
 
 export interface WorkoutDayExercise {
   id: string
@@ -51,19 +56,25 @@ export interface SessionSet {
   done: boolean
 }
 
-export interface Session {
+export interface Activity {
   id: string
-  workout_day_id: string
+  category: ActivityCategory
+  name: string
+  color: string
+  workout_day_id: string | null
   status: string
   started_at: string
   finished_at: string | null
   duration_mins: number | null
   note: string | null
-  workout_days?: Pick<WorkoutDay, 'id' | 'name' | 'slug' | 'color' | 'subtitle'> | null
+  workout_days?: Pick<WorkoutTemplate, 'id' | 'name' | 'slug' | 'color' | 'subtitle'> | null
   session_sets?: SessionSet[]
 }
 
-export interface FinishedSession extends Omit<Session, 'session_sets'> {
+/** Compat alias — prefer Activity */
+export type Session = Activity
+
+export interface FinishedSession extends Omit<Activity, 'session_sets'> {
   prs?: PersonalRecord[]
   session_sets?: SessionSet[] | SetRow[]
 }
