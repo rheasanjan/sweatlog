@@ -51,10 +51,13 @@ create table if not exists workout_day_exercises (
   constraint workout_day_exercises_unique unique (workout_day_id, exercise_id)
 );
 
--- 6. SESSIONS
+-- 6. SESSIONS (activities are stored here)
 create table if not exists sessions (
   id              uuid primary key default gen_random_uuid(),
-  workout_day_id  uuid not null references workout_days(id),
+  workout_day_id  uuid references workout_days(id),
+  category        text not null default 'strength' check (category in ('strength', 'cardio', 'sport', 'mobility')),
+  name            text,
+  color           text,
   status          text not null default 'in_progress' check (status in ('in_progress', 'completed', 'abandoned')),
   started_at      timestamptz not null default now(),
   finished_at     timestamptz,

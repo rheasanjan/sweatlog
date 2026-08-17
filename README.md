@@ -27,6 +27,12 @@ A personal gym progress tracker built with React + Supabase. Pairs nicely with [
 2. Paste the full contents of `schema.sql`
 3. Click **Run** — creates tables, indexes, views, seeds exercises, and enables RLS
 
+### Existing projects — Phase 1 activity migration
+
+If the database was created before the Activity model change, run
+`supabase/migrations/20260817120000_activity_model_phase1.sql` in the
+Supabase SQL Editor (in addition to any earlier migrations you already applied).
+
 ### 3. Get your API keys
 
 1. Supabase Dashboard → **Project Settings** → **API**
