@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type {
+  Activity,
   BodyLogEntry,
   Exercise,
   MuscleGroup,
@@ -10,6 +11,7 @@ import type {
   WorkoutDayExercise,
   WorkoutSkip,
   SetRow,
+  WorkoutTemplate,
 } from '../types'
 import { slugify } from './program'
 
@@ -217,15 +219,42 @@ export async function removeExerciseFromWorkoutDay(workoutDayExerciseId: string)
 // ─── SESSIONS ────────────────────────────────────────────────
 
 export async function createSession(
-  workoutDayId: string,
+  template: Pick<WorkoutTemplate, 'id' | 'name' | 'color'>,
   { startedAt }: { startedAt?: string } = {},
-): Promise<Session> {
+): Promise<Activity> {
   const started = startedAt || new Date().toISOString()
   const { data, error } = await supabase
     .from('sessions')
-    .insert({ workout_day_id: workoutDayId, status: 'in_progress', started_at: started })
+    .insert({
+      workout_day_id: template.id,
+      category: 'strength',
+      name: template.name,
+      color: template.color,
+      status: 'in_progress',
+      started_at: started,
+    })
     .select()
     .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchInProgressSession(templateId: string): Promise<Activity | null> {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select(`
+      *,
+      workout_days ( id, name, slug, color, subtitle ),
+      session_sets (
+        id, exercise_id, exercise_name, alt_used,
+        set_number, weight_kg, reps, duration_secs, done
+      )
+    `)
+    .eq('workout_day_id', templateId)
+    .eq('status', 'in_progress')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
   if (error) throw error
   return data
 }
@@ -278,7 +307,7 @@ export async function abandonSession(sessionId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function fetchRecentSessions(limit = 20): Promise<Session[]> {
+export async function fetchRecentSessions(limit = 20): Promise<Activity[]> {
   const { data, error } = await supabase
     .from('sessions')
     .select(`

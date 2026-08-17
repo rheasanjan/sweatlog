@@ -135,7 +135,10 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
 
   useEffect(() => {
     const startedAt = dateAtNoon(logDateKey)
-    createSession(workoutDay.id, { startedAt }).then(s => {
+    createSession(
+      { id: workoutDay.id, name: workoutDay.name, color: workoutDay.color },
+      { startedAt },
+    ).then(s => {
       sessionIdRef.current = s.id
       startedAtRef.current = s.started_at
       if (pendingSaveRef.current) {

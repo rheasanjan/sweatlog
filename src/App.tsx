@@ -120,7 +120,10 @@ export default function App() {
       <div style={{ padding: 24, textAlign: 'center' }}>
         <p style={{ color: '#DC2626', fontWeight: 700 }}>Connection error</p>
         <p style={{ color: '#64748B', fontSize: 13, marginTop: 8 }}>{error}</p>
-        <p style={{ color: '#94A3B8', fontSize: 12, marginTop: 8 }}>Check your .env file and run schema.sql in Supabase.</p>
+        <p style={{ color: '#94A3B8', fontSize: 12, marginTop: 8 }}>
+          Check your .env file and run schema.sql in Supabase.
+          {/(category|column)/i.test(error) && ' Run the Phase 1 activity migration SQL.'}
+        </p>
       </div>
     )
   }
