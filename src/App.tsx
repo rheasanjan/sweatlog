@@ -184,12 +184,9 @@ export default function App() {
       )}
       {screen === 'history' && (
         <History
-          sessions={sessions}
-          workoutDays={workoutDays}
-          weekSkips={weekSkips}
+          activities={sessions}
           onBack={() => setScreen('home')}
           onEditSession={(session) => openSessionEdit(session, 'history')}
-          onLogSession={(day, logDate) => startSession(day, logDate, 'history')}
         />
       )}
       {screen === 'sessionEdit' && editingSession && (
