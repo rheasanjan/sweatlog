@@ -30,6 +30,7 @@ Ship full Phase 2: users can log Strength, Cardio, Sport, and Mobility through o
 | Optional fields storage | JSON `details` on `sessions` |
 | Weekly summary | Count + total time + category breakdown |
 | Approach | Category hub + lightweight forms per non-strength category |
+| Non-strength duration | Manual entered field (logged after the fact) — never a live timer |
 
 ## Non-goals (Phase 2)
 
@@ -37,6 +38,7 @@ Ship full Phase 2: users can log Strength, Cardio, Sport, and Mobility through o
 - Training plans / streak  
 - Custom user-defined activity types UI  
 - Empty strength workout without a template  
+- Live timers / auto-tracked duration for non-strength (duration is typed in after the fact)  
 - Renaming DB tables (`sessions` → `activities`)  
 - Visual redesign beyond hierarchy/terminology needed for activities  
 
@@ -128,10 +130,10 @@ Picker back → category screen.
 1. Show type list for that category  
 2. Open lightweight form:
    - Date (default today)  
-   - Duration (required)  
+   - Duration (required) — user types minutes (or hours+minutes); **not** a running timer, because these are usually logged after finishing  
    - Type-specific optional fields  
    - Notes (optional)  
-3. Save creates a completed activity  
+3. Save creates a completed activity with the entered duration  
 4. Navigate to Home; item appears in Recent Activity  
 
 ### Edit
