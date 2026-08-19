@@ -33,6 +33,12 @@ If the database was created before the Activity model change, run
 `supabase/migrations/20260817120000_activity_model_phase1.sql` in the
 Supabase SQL Editor (in addition to any earlier migrations you already applied).
 
+### Existing projects — Phase 2 activity details
+
+If the database was created before Phase 2 generalized activities, also run
+`supabase/migrations/20260819120000_activity_details_phase2.sql` (adds
+`sessions.details` jsonb for optional cardio/sport/mobility fields).
+
 ### 3. Get your API keys
 
 1. Supabase Dashboard → **Project Settings** → **API**

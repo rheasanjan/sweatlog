@@ -63,6 +63,7 @@ create table if not exists sessions (
   finished_at     timestamptz,
   duration_mins   int,
   note            text,
+  details         jsonb not null default '{}',
   created_at      timestamptz not null default now()
 );
 
