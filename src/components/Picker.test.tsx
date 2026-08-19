@@ -36,6 +36,8 @@ const inProgress: Activity = {
 
 describe('Picker', () => {
   it('starts a new activity even when the template was completed this week', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-17T12:00:00.000Z'))
     const completed = { ...inProgress, id: 'completed-1', status: 'completed', finished_at: '2026-08-17T09:00:00.000Z' }
     const html = renderToStaticMarkup(
       <Picker
@@ -55,6 +57,7 @@ describe('Picker', () => {
     expect(html).not.toContain('Tap to edit')
     expect(html).not.toContain('SKIPPED')
     expect(html).not.toContain('Not doing this workout this week')
+    vi.useRealTimers()
   })
 
   it('resumes an in-progress activity instead of starting a new one', async () => {
