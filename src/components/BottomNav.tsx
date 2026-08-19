@@ -9,7 +9,7 @@ interface BottomNavProps {
 }
 
 export default function BottomNav({ screen, onHome, onHistory, onProgress }: BottomNavProps) {
-  const isHome = ['home', 'picker', 'summary'].includes(screen)
+  const isHome = ['home', 'picker', 'summary', 'activityCategory', 'activityType', 'activityForm'].includes(screen)
   const items = [
     { id: 'home', icon: Home, label: 'Home', action: onHome, active: isHome },
     { id: 'history', icon: CalendarDays, label: 'History', action: onHistory, active: screen === 'history' },

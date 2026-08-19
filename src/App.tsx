@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { Activity, Screen, Session, WorkoutDay, WorkoutDayExercise, Exercise, MuscleGroup, BodyLogEntry, FinishedSession } from './types'
+import type { Activity, ActivityCategory, Screen, Session, WorkoutDay, WorkoutDayExercise, Exercise, MuscleGroup, BodyLogEntry, FinishedSession } from './types'
 import Home from './components/Home'
 import Picker from './components/Picker'
 import ActiveSession from './components/ActiveSession'
@@ -8,6 +8,10 @@ import Progress from './components/Progress'
 import History from './components/History'
 import SessionEdit from './components/SessionEdit'
 import BottomNav from './components/BottomNav'
+import ActivityCategoryPicker from './components/ActivityCategoryPicker'
+import ActivityTypePicker from './components/ActivityTypePicker'
+import LightweightActivityForm from './components/LightweightActivityForm'
+import { typesForCategory, type ActivityTypeOption } from './lib/activityCatalog'
 import {
   fetchRecentSessions,
   fetchBodyLog,
@@ -17,7 +21,19 @@ import {
   fetchWorkoutDayExercises,
 } from './lib/supabase'
 
-type EditReturnScreen = 'home' | 'picker' | 'history'
+type EditReturnScreen = 'home' | 'picker' | 'history' | 'activityCategory'
+type NonStrengthCategory = Exclude<ActivityCategory, 'strength'>
+
+function resolveActivityType(activity: Activity): ActivityTypeOption | null {
+  if (activity.category === 'strength') return null
+  const match = typesForCategory(activity.category).find(t => t.label === activity.name)
+  if (match) return match
+  return {
+    id: 'other',
+    label: activity.name || 'Other',
+    color: activity.color || '#0891B2',
+  }
+}
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
@@ -37,6 +53,9 @@ export default function App() {
   const [finishedSession, setFinishedSession] = useState<FinishedSession | null>(null)
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [editReturnScreen, setEditReturnScreen] = useState<EditReturnScreen>('history')
+  const [selectedCategory, setSelectedCategory] = useState<NonStrengthCategory | null>(null)
+  const [selectedType, setSelectedType] = useState<ActivityTypeOption | null>(null)
+  const [editingLightweight, setEditingLightweight] = useState<Activity | null>(null)
 
   const loadAll = async () => {
     const [s, b, e, d, m] = await Promise.all([
@@ -113,12 +132,22 @@ export default function App() {
   }
 
   const openSessionEdit = (session: Session, from: EditReturnScreen = 'history') => {
+    if (session.category !== 'strength') {
+      const type = resolveActivityType(session)
+      if (!type) return
+      setSelectedCategory(session.category)
+      setSelectedType(type)
+      setEditingLightweight(session)
+      setEditReturnScreen(from)
+      setScreen('activityForm')
+      return
+    }
     setEditingSession(session)
     setEditReturnScreen(from)
     setScreen('sessionEdit')
   }
 
-  const hideBottomNav = ['session', 'sessionEdit'].includes(screen)
+  const hideBottomNav = ['session', 'sessionEdit', 'activityForm'].includes(screen)
 
   if (loading) {
     return (
@@ -137,7 +166,7 @@ export default function App() {
         <p style={{ color: '#64748B', fontSize: 13, marginTop: 8 }}>{error}</p>
         <p style={{ color: '#94A3B8', fontSize: 12, marginTop: 8 }}>
           Check your .env file and run schema.sql in Supabase.
-          {/(category|column)/i.test(error) && ' Run the Phase 1 activity migration SQL.'}
+          {/(category|column|details)/i.test(error) && ' Run the Phase 1/2 activity migration SQL.'}
         </p>
       </div>
     )
@@ -149,8 +178,58 @@ export default function App() {
         <Home
           activities={sessions}
           bodyLog={bodyLog}
-          onStart={() => setScreen('picker')}
+          onStart={() => setScreen('activityCategory')}
           onEditSession={(session) => openSessionEdit(session, 'home')}
+        />
+      )}
+      {screen === 'activityCategory' && (
+        <ActivityCategoryPicker
+          onBack={() => setScreen('home')}
+          onSelectCategory={(category) => {
+            if (category === 'strength') {
+              setScreen('picker')
+              return
+            }
+            setSelectedCategory(category)
+            setSelectedType(null)
+            setEditingLightweight(null)
+            setScreen('activityType')
+          }}
+        />
+      )}
+      {screen === 'activityType' && selectedCategory && (
+        <ActivityTypePicker
+          category={selectedCategory}
+          onBack={() => setScreen('activityCategory')}
+          onSelectType={(type) => {
+            setSelectedType(type)
+            setEditingLightweight(null)
+            setScreen('activityForm')
+          }}
+        />
+      )}
+      {screen === 'activityForm' && selectedCategory && selectedType && (
+        <LightweightActivityForm
+          category={selectedCategory}
+          activityType={selectedType}
+          initial={editingLightweight}
+          onBack={() => {
+            if (editingLightweight) {
+              setEditingLightweight(null)
+              setSelectedCategory(null)
+              setSelectedType(null)
+              setScreen(editReturnScreen === 'activityCategory' ? 'home' : editReturnScreen)
+              return
+            }
+            setScreen('activityType')
+          }}
+          onSaved={async () => {
+            setEditingLightweight(null)
+            setSelectedCategory(null)
+            setSelectedType(null)
+            await refreshData()
+            setScreen('home')
+          }}
         />
       )}
       {screen === 'picker' && (
@@ -161,7 +240,7 @@ export default function App() {
           muscleGroups={muscleGroups}
           onBack={() => {
             setResumeActivity(null)
-            setScreen('home')
+            setScreen('activityCategory')
           }}
           onSelect={(day, logDate) => startSession(day, logDate, 'picker')}
           onResume={resumeSession}
@@ -213,7 +292,7 @@ export default function App() {
           muscleGroups={muscleGroups}
           onBack={() => {
             setEditingSession(null)
-            setScreen(editReturnScreen)
+            setScreen(editReturnScreen === 'activityCategory' ? 'home' : editReturnScreen)
           }}
           onSaved={refreshData}
         />
