@@ -67,6 +67,7 @@ describe('History', () => {
     expect(html.indexOf('45 min')).toBeLessThan(html.indexOf('60 min'))
     expect(html).toContain('border-left:3px solid #7C3AED')
     expect(html).toContain('border-left:3px solid #DC2626')
+    expect(html).not.toContain('No sessions this week')
 
     vi.useRealTimers()
   })

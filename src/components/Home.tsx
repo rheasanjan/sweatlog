@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { Dumbbell } from 'lucide-react'
 import { startOfWeek } from '../lib/program'
+import { formatActivitySubtitle } from '../lib/activitySubtitle'
 import type { Activity, BodyLogEntry } from '../types'
 
-function daysAgo(dateStr: string | null | undefined): string | null {
-  if (!dateStr) return null
+function daysAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Unknown date'
   const diff = Date.now() - new Date(dateStr).getTime()
   const d = Math.floor(diff / (1000 * 60 * 60 * 24))
   if (d === 0) return 'Today'
@@ -38,7 +39,7 @@ export default function Home({ activities, bodyLog, onStart, onEditSession }: Ho
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#F8FAFC', letterSpacing: -0.5 }}>Sweatlog</h1>
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 28 }}>
           <Stat value={latestWeight !== '—' ? `${latestWeight}kg` : '—'} label="Weight" />
-          <Stat value={`${thisWeekFinished.length} sessions`} label="This Week" />
+          <Stat value={`${thisWeekFinished.length} activities`} label="This Week" />
         </div>
       </div>
 
@@ -47,18 +48,17 @@ export default function Home({ activities, bodyLog, onStart, onEditSession }: Ho
           onClick={onStart}
           style={{ width: '100%', background: '#2563EB', color: '#fff', border: 'none', borderRadius: 14, padding: '16px', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginBottom: 28 }}
         >
-          <Dumbbell size={18} /> Log a Workout
+          <Dumbbell size={18} /> Log Activity
         </button>
 
         <SectionLabel>Recent Activity</SectionLabel>
         {recent.length === 0 ? (
-          <EmptyCard text="No sessions yet. Start your first one above." />
+          <EmptyCard text="No activities yet. Log your first one above." />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recent.map(s => {
               const day = s.workout_days
               const color = s.color || day?.color || '#2563EB'
-              const setsLogged = (s.session_sets || []).filter(st => st.done).length
               return (
                 <button
                   key={s.id}
@@ -66,9 +66,9 @@ export default function Home({ activities, bodyLog, onStart, onEditSession }: Ho
                   style={{ textAlign: 'left', background: '#fff', borderRadius: 10, padding: '12px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: 'none', borderLeft: `3px solid ${color}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', cursor: 'pointer' }}
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{s.name || day?.name || 'Workout'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{s.name || day?.name || 'Activity'}</div>
                     <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
-                      {daysAgo(s.started_at)} · {setsLogged} sets{s.duration_mins ? ` · ${s.duration_mins}min` : ''}
+                      {formatActivitySubtitle(s, { relativeDate: daysAgo(s.started_at) })}
                     </div>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#2563EB' }}>Edit</div>

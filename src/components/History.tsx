@@ -4,6 +4,7 @@ import {
   startOfWeek, addWeeks, formatWeekRange, formatSessionDate, sessionsInWeek,
 } from '../lib/program'
 import { buildWeeklySummary } from '../lib/weeklySummary'
+import { formatActivitySubtitle } from '../lib/activitySubtitle'
 import WeeklySummaryCard from './WeeklySummaryCard'
 import type { Activity } from '../types'
 
@@ -70,7 +71,7 @@ export default function History({ activities, onBack, onEditSession }: HistoryPr
 
         {weekSessions.length === 0 ? (
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>
-            No sessions this week. Log a workout from Home.
+            No activities this week. Log an activity from Home.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -88,12 +89,13 @@ export default function History({ activities, onBack, onEditSession }: HistoryPr
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 15 }}>{s.name}</div>
                       <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                        {formatSessionDate(s.started_at)}
-                        {s.duration_mins ? ` · ${s.duration_mins} min` : ''}
+                        {formatActivitySubtitle(s, { relativeDate: formatSessionDate(s.started_at) })}
                       </div>
-                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-                        {exerciseCount} exercises · {setsLogged} sets logged
-                      </div>
+                      {s.category === 'strength' && (
+                        <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                          {exerciseCount} exercises · {setsLogged} sets logged
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#2563EB' }}>Edit</div>
                   </div>

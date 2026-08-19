@@ -42,14 +42,15 @@ describe('Home', () => {
       />,
     )
 
-    expect(html).toContain('1 sessions')
-    expect(html).toContain('Log a Workout')
+    expect(html).toContain('1 activities')
+    expect(html).toContain('Log Activity')
     expect(html).toContain('Recent Activity')
     expect(html).toContain('Upper Body')
     expect(html).toContain('border-left:3px solid #7C3AED')
     expect(html).not.toContain('Templates')
     expect(html).not.toContain('Push Day')
     expect(html).not.toContain('Streak')
+    expect(html).not.toContain('Log a Workout')
 
     vi.useRealTimers()
   })
