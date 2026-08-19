@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type {
   Activity,
+  ActivityCategory,
+  ActivityDetails,
   BodyLogEntry,
   Exercise,
   MuscleGroup,
@@ -251,6 +253,74 @@ export async function createSession(
       status: 'in_progress',
       started_at: started,
     })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function createLightweightActivity(input: {
+  category: Exclude<ActivityCategory, 'strength'>
+  name: string
+  color: string
+  durationMins: number
+  startedAt: string
+  note?: string | null
+  details?: ActivityDetails
+}): Promise<Activity> {
+  const durationMins = Math.max(1, Math.round(input.durationMins) || 1)
+  const finishedAt = new Date(
+    new Date(input.startedAt).getTime() + durationMins * 60000,
+  ).toISOString()
+  const { data, error } = await supabase
+    .from('sessions')
+    .insert({
+      workout_day_id: null,
+      category: input.category,
+      name: input.name,
+      color: input.color,
+      status: 'completed',
+      started_at: input.startedAt,
+      finished_at: finishedAt,
+      duration_mins: durationMins,
+      note: input.note ?? null,
+      details: input.details ?? {},
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateLightweightActivity(
+  id: string,
+  input: {
+    durationMins: number
+    startedAt: string
+    note?: string | null
+    details?: ActivityDetails
+    name?: string
+    color?: string
+  },
+): Promise<Activity> {
+  const durationMins = Math.max(1, Math.round(input.durationMins) || 1)
+  const finishedAt = new Date(
+    new Date(input.startedAt).getTime() + durationMins * 60000,
+  ).toISOString()
+  const updates: Record<string, string | number | ActivityDetails | null> = {
+    started_at: input.startedAt,
+    finished_at: finishedAt,
+    duration_mins: durationMins,
+  }
+  if (input.note !== undefined) updates.note = input.note
+  if (input.details !== undefined) updates.details = input.details
+  if (input.name !== undefined) updates.name = input.name
+  if (input.color !== undefined) updates.color = input.color
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .update(updates)
+    .eq('id', id)
     .select()
     .single()
   if (error) throw error

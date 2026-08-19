@@ -9,7 +9,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: createClient.mockReturnValue({ from }),
 }))
 
-import { createSession, deleteWorkoutDay, fetchInProgressSession } from './supabase'
+import { createLightweightActivity, createSession, deleteWorkoutDay, fetchInProgressSession, updateLightweightActivity } from './supabase'
 
 describe('activity session persistence', () => {
   beforeEach(() => {
@@ -79,6 +79,87 @@ describe('activity session persistence', () => {
     expect(statusEq).toHaveBeenCalledWith('status', 'in_progress')
     expect(order).toHaveBeenCalledWith('started_at', { ascending: false })
     expect(limit).toHaveBeenCalledWith(1)
+    expect(result).toEqual(activity)
+  })
+})
+
+describe('lightweight activity persistence', () => {
+  beforeEach(() => {
+    from.mockReset()
+  })
+
+  it('inserts a completed cardio activity with details and duration', async () => {
+    const activity = {
+      id: 'run-1',
+      category: 'cardio',
+      name: 'Run',
+      color: '#0891B2',
+      workout_day_id: null,
+      status: 'completed',
+      started_at: '2026-08-19T12:00:00.000Z',
+      finished_at: '2026-08-19T12:18:00.000Z',
+      duration_mins: 18,
+      note: null,
+      details: { distance_km: 2.1 },
+    }
+    const single = vi.fn().mockResolvedValue({ data: activity, error: null })
+    const select = vi.fn().mockReturnValue({ single })
+    const insert = vi.fn().mockReturnValue({ select })
+    from.mockReturnValue({ insert })
+
+    const result = await createLightweightActivity({
+      category: 'cardio',
+      name: 'Run',
+      color: '#0891B2',
+      durationMins: 18,
+      startedAt: '2026-08-19T12:00:00.000Z',
+      details: { distance_km: 2.1 },
+    })
+
+    expect(from).toHaveBeenCalledWith('sessions')
+    expect(insert).toHaveBeenCalledWith({
+      workout_day_id: null,
+      category: 'cardio',
+      name: 'Run',
+      color: '#0891B2',
+      status: 'completed',
+      started_at: '2026-08-19T12:00:00.000Z',
+      finished_at: '2026-08-19T12:18:00.000Z',
+      duration_mins: 18,
+      note: null,
+      details: { distance_km: 2.1 },
+    })
+    expect(result).toEqual(activity)
+  })
+
+  it('updates duration and details on an existing lightweight activity', async () => {
+    const activity = {
+      id: 'run-1',
+      category: 'cardio',
+      name: 'Run',
+      color: '#0891B2',
+      duration_mins: 22,
+      details: { distance_km: 2.5 },
+    }
+    const single = vi.fn().mockResolvedValue({ data: activity, error: null })
+    const select = vi.fn().mockReturnValue({ single })
+    const eq = vi.fn().mockReturnValue({ select })
+    const update = vi.fn().mockReturnValue({ eq })
+    from.mockReturnValue({ update })
+
+    const result = await updateLightweightActivity('run-1', {
+      durationMins: 22,
+      startedAt: '2026-08-19T12:00:00.000Z',
+      details: { distance_km: 2.5 },
+    })
+
+    expect(update).toHaveBeenCalledWith({
+      started_at: '2026-08-19T12:00:00.000Z',
+      finished_at: '2026-08-19T12:22:00.000Z',
+      duration_mins: 22,
+      details: { distance_km: 2.5 },
+    })
+    expect(eq).toHaveBeenCalledWith('id', 'run-1')
     expect(result).toEqual(activity)
   })
 })
