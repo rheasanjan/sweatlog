@@ -1,4 +1,16 @@
-export type Screen = 'home' | 'picker' | 'session' | 'summary' | 'progress' | 'history' | 'sessionEdit'
+export type Screen =
+  | 'home'
+  | 'picker'
+  | 'session'
+  | 'summary'
+  | 'progress'
+  | 'history'
+  | 'sessionEdit'
+  | 'activityCategory'
+  | 'activityType'
+  | 'activityForm'
+
+export type ActivityDetails = Record<string, string | number | boolean>
 
 export interface MuscleGroup {
   id: string
@@ -67,6 +79,7 @@ export interface Activity {
   finished_at: string | null
   duration_mins: number | null
   note: string | null
+  details?: ActivityDetails | null
   workout_days?: Pick<WorkoutTemplate, 'id' | 'name' | 'slug' | 'color' | 'subtitle'> | null
   session_sets?: SessionSet[]
 }
