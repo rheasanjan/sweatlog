@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildWeeklySummary,
+  formatCategoryBreakdown,
   formatImprovementDelta,
   isBetterSet,
   weeklySummaryCopy,
@@ -63,20 +64,38 @@ describe('isBetterSet / formatImprovementDelta', () => {
   })
 })
 
+describe('formatCategoryBreakdown', () => {
+  it('omits zeros and orders strength, cardio, sport, mobility', () => {
+    expect(formatCategoryBreakdown({ cardio: 2, strength: 1, mobility: 1 })).toBe(
+      '1 strength · 2 cardio · 1 mobility',
+    )
+  })
+})
+
 describe('weeklySummaryCopy', () => {
-  it('handles empty, sparse, and rich states', () => {
+  it('handles empty, sparse, and rich states with activities wording', () => {
     expect(weeklySummaryCopy({ sessionCount: 0, totalMins: 0, prCount: 0 })).toEqual({
-      headline: '0 sessions · 0m',
-      subline: 'Log a session to start the week.',
+      headline: '0 activities · 0m',
+      subline: 'Log an activity to start the week.',
       rich: false,
     })
-    expect(weeklySummaryCopy({ sessionCount: 2, totalMins: 85, prCount: 0 })).toEqual({
-      headline: '2 sessions · 1h 25m',
-      subline: 'Keep logging what you actually did.',
+    expect(weeklySummaryCopy({
+      sessionCount: 2,
+      totalMins: 85,
+      prCount: 0,
+      categoryBreakdown: '1 strength · 1 cardio',
+    })).toEqual({
+      headline: '2 activities · 1h 25m',
+      subline: '1 strength · 1 cardio',
       rich: false,
     })
-    expect(weeklySummaryCopy({ sessionCount: 4, totalMins: 165, prCount: 2 })).toEqual({
-      headline: 'Strong week — 4 sessions · 2h 45m',
+    expect(weeklySummaryCopy({
+      sessionCount: 4,
+      totalMins: 165,
+      prCount: 2,
+      categoryBreakdown: '3 strength · 1 sport',
+    })).toEqual({
+      headline: 'Strong week — 4 activities · 2h 45m',
       subline: 'All-time bests set this week.',
       rich: true,
     })
@@ -89,7 +108,8 @@ describe('buildWeeklySummary', () => {
     expect(summary.sessionCount).toBe(0)
     expect(summary.totalMins).toBe(0)
     expect(summary.prs).toEqual([])
-    expect(summary.headline).toBe('0 sessions · 0m')
+    expect(summary.headline).toBe('0 activities · 0m')
+    expect(summary.categoryBreakdown).toBe('')
   })
 
   it('counts multiple completed activities from the same template', () => {
@@ -113,8 +133,47 @@ describe('buildWeeklySummary', () => {
 
     expect(summary.sessionCount).toBe(2)
     expect(summary.totalMins).toBe(65)
-    expect(summary.headline).toContain('2 sessions')
+    expect(summary.headline).toContain('2 activities')
     expect(summary.headline).toContain('1h 5m')
+    expect(summary.categoryBreakdown).toBe('2 strength')
+  })
+
+  it('builds category breakdown across mixed activities', () => {
+    const strength = session({
+      id: 's1',
+      workout_day_id: 'd1',
+      started_at: '2026-07-07T12:00:00.000Z',
+      category: 'strength',
+      duration_mins: 40,
+    })
+    const cardio = session({
+      id: 'c1',
+      workout_day_id: null,
+      started_at: '2026-07-08T12:00:00.000Z',
+      category: 'cardio',
+      name: 'Run',
+      color: '#0891B2',
+      duration_mins: 20,
+    })
+    const sport = session({
+      id: 'p1',
+      workout_day_id: null,
+      started_at: '2026-07-09T12:00:00.000Z',
+      category: 'sport',
+      name: 'Pickleball',
+      color: '#D97706',
+      duration_mins: 75,
+    })
+
+    const summary = buildWeeklySummary({
+      sessions: [strength, cardio, sport],
+      weekMonday,
+    })
+
+    expect(summary.sessionCount).toBe(3)
+    expect(summary.categoryCounts).toEqual({ strength: 1, cardio: 1, sport: 1 })
+    expect(summary.categoryBreakdown).toBe('1 strength · 1 cardio · 1 sport')
+    expect(summary.subline).toBe('1 strength · 1 cardio · 1 sport')
   })
 
   it('detects all-time PRs and excludes them from week-over-week beats', () => {
@@ -155,7 +214,6 @@ describe('buildWeeklySummary', () => {
 
     expect(summary.prs.map(p => p.exerciseName).sort()).toEqual(['Bench Press', 'Curl', 'Squat'])
     expect(summary.prs.find(p => p.exerciseName === 'Bench Press')?.deltaLabel).toBe('+2.5kg')
-    // All three are PRs (beat prior), so beats footer stays empty even though they also beat last week
     expect(summary.weekOverWeekBeats).toEqual([])
     expect(summary.rich).toBe(true)
   })

@@ -6,7 +6,7 @@ export interface WeeklySummaryCardProps {
 }
 
 export default function WeeklySummaryCard({ summary }: Readonly<WeeklySummaryCardProps>) {
-  const { rich, headline, subline, prs, weekOverWeekBeats } = summary
+  const { rich, headline, subline, prs, weekOverWeekBeats, categoryBreakdown } = summary
 
   return (
     <div
@@ -38,6 +38,9 @@ export default function WeeklySummaryCard({ summary }: Readonly<WeeklySummaryCar
       <div style={{ fontSize: 13, color: '#64748B', marginTop: 6, lineHeight: 1.4 }}>
         {subline}
       </div>
+      {rich && categoryBreakdown ? (
+        <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>{categoryBreakdown}</div>
+      ) : null}
 
       {prs.length > 0 && (
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -1,6 +1,6 @@
 import { addWeeks, sessionsInWeek, weekStartKey } from './program'
 import { formatTotalDuration, sumDurationMins } from './activityHelpers'
-import type { Activity, SessionSet } from '../types'
+import type { Activity, ActivityCategory, SessionSet } from '../types'
 
 export interface WeeklyPrWin {
   exerciseId: string
@@ -11,6 +11,8 @@ export interface WeeklyPrWin {
 export interface WeeklySummary {
   sessionCount: number
   totalMins: number
+  categoryCounts: Partial<Record<ActivityCategory, number>>
+  categoryBreakdown: string
   prs: WeeklyPrWin[]
   weekOverWeekBeats: string[]
   headline: string
@@ -22,6 +24,26 @@ interface ExerciseBest {
   exerciseId: string
   exerciseName: string
   set: SessionSet
+}
+
+const CATEGORY_ORDER: ActivityCategory[] = ['strength', 'cardio', 'sport', 'mobility']
+
+export function formatCategoryBreakdown(
+  counts: Partial<Record<ActivityCategory, number>>,
+): string {
+  return CATEGORY_ORDER
+    .filter(cat => (counts[cat] || 0) > 0)
+    .map(cat => `${counts[cat]} ${cat}`)
+    .join(' · ')
+}
+
+function countByCategory(sessions: Activity[]): Partial<Record<ActivityCategory, number>> {
+  const counts: Partial<Record<ActivityCategory, number>> = {}
+  for (const session of sessions) {
+    const cat = session.category || 'strength'
+    counts[cat] = (counts[cat] || 0) + 1
+  }
+  return counts
 }
 
 function isTimed(set: SessionSet): boolean {
@@ -84,30 +106,31 @@ export function weeklySummaryCopy(input: {
   sessionCount: number
   totalMins: number
   prCount: number
+  categoryBreakdown?: string
 }): { headline: string; subline: string; rich: boolean } {
-  const { sessionCount, totalMins, prCount } = input
+  const { sessionCount, totalMins, prCount, categoryBreakdown = '' } = input
   const durationLabel = formatTotalDuration(totalMins)
   const rich = prCount > 0
 
   if (sessionCount === 0) {
     return {
-      headline: `0 sessions · ${durationLabel}`,
-      subline: 'Log a session to start the week.',
+      headline: `0 activities · ${durationLabel}`,
+      subline: 'Log an activity to start the week.',
       rich: false,
     }
   }
 
   if (rich) {
     return {
-      headline: `Strong week — ${sessionCount} sessions · ${durationLabel}`,
+      headline: `Strong week — ${sessionCount} activities · ${durationLabel}`,
       subline: 'All-time bests set this week.',
       rich: true,
     }
   }
 
   return {
-    headline: `${sessionCount} sessions · ${durationLabel}`,
-    subline: 'Keep logging what you actually did.',
+    headline: `${sessionCount} activities · ${durationLabel}`,
+    subline: categoryBreakdown || 'Keep logging what you actually did.',
     rich: false,
   }
 }
@@ -123,6 +146,8 @@ export function buildWeeklySummary(input: {
 
   const sessionCount = thisWeekSessions.length
   const totalMins = sumDurationMins(thisWeekSessions)
+  const categoryCounts = countByCategory(thisWeekSessions)
+  const categoryBreakdown = formatCategoryBreakdown(categoryCounts)
 
   const thisWeekBests = bestsByExercise(thisWeekSessions)
   const priorBests = bestsByExercise(priorSessions)
@@ -153,11 +178,14 @@ export function buildWeeklySummary(input: {
     sessionCount,
     totalMins,
     prCount: prs.length,
+    categoryBreakdown,
   })
 
   return {
     sessionCount,
     totalMins,
+    categoryCounts,
+    categoryBreakdown,
     prs,
     weekOverWeekBeats,
     headline: copy.headline,
