@@ -5,6 +5,8 @@ import { editExercisesToRows } from '../lib/sessionSets'
 import { upsertSets, updateSession } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
 import type { Session, Exercise, MuscleGroup, SessionSet, ExerciseSetGroup, SetInput } from '../types'
+import { theme } from '../styles/theme'
+import { cardStyle } from '../styles/ui'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -49,7 +51,7 @@ export interface SessionEditProps {
   onSaved?: () => Promise<void>
 }
 
-export default function SessionEdit({ session, exercises, muscleGroups, onBack, onSaved }: SessionEditProps) {
+export default function SessionEdit({ session, exercises, muscleGroups, onBack, onSaved }: Readonly<SessionEditProps>) {
   const day = session.workout_days
   const color = day?.color || '#2563EB'
 
@@ -167,13 +169,13 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
   const setGridCols = '24px 1fr 1fr 32px 36px'
 
   return (
-    <div style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: 100 }}>
-      <div style={{ background: color, padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, zIndex: 30 }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+    <div style={{ background: theme.colors.background, minHeight: '100vh', paddingBottom: 100 }}>
+      <div style={{ background: `linear-gradient(135deg, ${theme.colors.navy} 0%, ${color} 140%)`, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 30 }}>
+        <button type="button" aria-label="Back" onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
           <ChevronLeft size={18} color="#fff" />
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{day?.name || 'Workout'}</div>
+          <div style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800, color: theme.colors.white }}>{day?.name || 'Workout'}</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>
             {saveStatus === 'saving' && 'Saving…'}
             {saveStatus === 'saved' && 'Saved'}
@@ -182,7 +184,7 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
         </div>
       </div>
 
-      <div style={{ background: color, padding: '0 16px 12px' }}>
+      <div style={{ background: `linear-gradient(135deg, ${theme.colors.navy} 0%, ${color} 140%)`, padding: '0 20px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>Date</span>
           <input
@@ -190,23 +192,24 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
             value={dateValue}
             max={toDateInputValue()}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDateChange(e.target.value)}
-            style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', fontSize: 13, background: 'rgba(255,255,255,0.95)' }}
+            style={{ flex: 1, padding: '9px 11px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.18)', fontSize: 13, background: 'rgba(255,255,255,0.96)' }}
           />
         </div>
       </div>
 
-      <div style={{ padding: '12px 16px' }}>
+      <div style={{ padding: '14px 20px' }}>
         {exercisesState.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 13, padding: 32 }}>No exercises logged. Add one below.</div>
+          <div style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 13, padding: 32 }}>No exercises logged. Add one below.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {exercisesState.map((ex, exIdx) => {
               const timed = isTimed(ex.targetReps)
               return (
-                <div key={exIdx} style={{ background: '#fff', borderRadius: 14, padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+                <div key={exIdx} style={{ ...cardStyle, padding: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, gap: 8 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15 }}>{ex.exerciseName}</div>
+                    <div style={{ fontFamily: theme.font.display, fontWeight: 800, fontSize: 15 }}>{ex.exerciseName}</div>
                     <button
+                      type="button"
                       onClick={() => removeExercise(exIdx)}
                       title="Remove from session"
                       style={{ background: '#FEF2F2', border: 'none', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
@@ -228,7 +231,7 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
                       const repeat = setRepeatCount(set)
                       return (
                       <div key={setIdx} style={{ display: 'grid', gridTemplateColumns: setGridCols, gap: 6, alignItems: 'center' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textAlign: 'center' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.muted, textAlign: 'center' }}>
                           {repeat > 1 ? `${set.setNumber}×${repeat}` : set.setNumber}
                         </div>
                         <input
@@ -236,7 +239,7 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
                           inputMode="decimal"
                           value={set.weight}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'weight', e.target.value)}
-                          style={{ padding: '9px 4px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : '#fff', outline: 'none' }}
+                          style={{ padding: '9px 4px', borderRadius: 10, border: `1px solid ${set.done ? '#22B573' : theme.colors.line}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#E7F8EF' : theme.colors.white, outlineColor: theme.colors.brand }}
                         />
                         <input
                           type="number"
@@ -244,7 +247,7 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
                           value={set.reps}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'reps', e.target.value)}
                           disabled={timed}
-                          style={{ padding: '9px 4px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
+                          style={{ padding: '9px 4px', borderRadius: 10, border: `1px solid ${set.done ? '#22B573' : theme.colors.line}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#E7F8EF' : timed ? theme.colors.background : theme.colors.white, outlineColor: theme.colors.brand, opacity: timed ? 0.4 : 1 }}
                         />
                         <input
                           type="number"
@@ -254,16 +257,16 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
                           value={set.repeat ?? '1'}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'repeat', e.target.value)}
                           disabled={timed}
-                          style={{ padding: '9px 2px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 13, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
+                          style={{ padding: '9px 2px', borderRadius: 10, border: `1px solid ${set.done ? '#22B573' : theme.colors.line}`, fontSize: 13, textAlign: 'center', width: '100%', background: set.done ? '#E7F8EF' : timed ? theme.colors.background : theme.colors.white, outlineColor: theme.colors.brand, opacity: timed ? 0.4 : 1 }}
                         />
-                        <button onClick={() => toggleDone(exIdx, setIdx)} style={{ width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', background: set.done ? '#10B981' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button type="button" onClick={() => toggleDone(exIdx, setIdx)} style={{ width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', background: set.done ? '#10B981' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Check size={16} color={set.done ? '#fff' : '#CBD5E1'} strokeWidth={3} />
                         </button>
                       </div>
                       )
                     })}
                   </div>
-                  <button onClick={() => addSet(exIdx)} style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <button type="button" onClick={() => addSet(exIdx)} style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                     + Add Set
                   </button>
                 </div>
@@ -273,8 +276,9 @@ export default function SessionEdit({ session, exercises, muscleGroups, onBack, 
         )}
 
         <button
+          type="button"
           onClick={() => setShowAddExercise(true)}
-          style={{ width: '100%', marginTop: 16, background: '#fff', border: `1.5px dashed ${color}`, borderRadius: 12, padding: '14px', fontSize: 13, fontWeight: 700, color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          style={{ width: '100%', marginTop: 16, background: '#F1EEFF', border: `1px dashed ${color}`, borderRadius: 16, padding: '14px', fontSize: 13, fontWeight: 700, color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <Plus size={16} /> Add Exercise
         </button>

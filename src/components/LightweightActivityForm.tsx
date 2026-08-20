@@ -1,9 +1,12 @@
-import { useMemo, useState, type CSSProperties } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { toDateInputValue } from '../lib/program'
 import { createLightweightActivity, updateLightweightActivity } from '../lib/supabase'
 import type { ActivityTypeOption } from '../lib/activityCatalog'
 import type { Activity, ActivityCategory, ActivityDetails } from '../types'
+import { categoryTheme, theme } from '../styles/theme'
+import { cardStyle, inputStyle, labelStyle, primaryButtonStyle } from '../styles/ui'
+import ActivityIcon from './ActivityIcon'
+import ScreenHeader from './ui/ScreenHeader'
 
 export interface LightweightActivityFormProps {
   category: Exclude<ActivityCategory, 'strength'>
@@ -70,31 +73,13 @@ function buildDetails(
   return details
 }
 
-const labelStyle: CSSProperties = {
-  display: 'block',
-  fontSize: 12,
-  fontWeight: 700,
-  color: '#64748B',
-  marginBottom: 6,
-}
-
-const inputStyle: CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  border: '1px solid #E2E8F0',
-  borderRadius: 10,
-  padding: '12px 14px',
-  fontSize: 15,
-  background: '#fff',
-}
-
 export default function LightweightActivityForm({
   category,
   activityType,
   initial = null,
   onBack,
   onSaved,
-}: LightweightActivityFormProps) {
+}: Readonly<LightweightActivityFormProps>) {
   const initialDetails = initial?.details || {}
   const [date, setDate] = useState(
     initial ? toDateInputValue(new Date(initial.started_at)) : toDateInputValue(),
@@ -184,21 +169,21 @@ export default function LightweightActivityForm({
   }
 
   return (
-    <div>
-      <div style={{ background: '#0F172A', padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          type="button"
-          onClick={onBack}
-          style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-        >
-          <ChevronLeft size={18} color="#fff" />
-        </button>
-        <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>
-          {initial ? `Edit ${activityType.label}` : activityType.label}
-        </div>
-      </div>
+    <div style={{ minHeight: '100vh', background: theme.colors.background }}>
+      <ScreenHeader
+        title={initial ? `Edit ${activityType.label}` : activityType.label}
+        subtitle={initial ? 'Update your logged activity' : 'Log what you completed'}
+        onBack={onBack}
+        accent={categoryTheme[category].color}
+        action={(
+          <span style={{ width: 38, height: 38, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,0.12)' }}>
+            <ActivityIcon name={activityType.icon} color={theme.colors.white} size={20} />
+          </span>
+        )}
+      />
 
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '18px 20px 28px' }}>
+        <div style={{ ...cardStyle, padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={labelStyle} htmlFor="activity-date">Date</label>
           <input
@@ -308,20 +293,11 @@ export default function LightweightActivityForm({
           type="button"
           onClick={save}
           disabled={saving || !durationValid}
-          style={{
-            width: '100%',
-            background: durationValid ? '#2563EB' : '#94A3B8',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 12,
-            padding: '14px',
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: durationValid && !saving ? 'pointer' : 'default',
-          }}
+          style={{ ...primaryButtonStyle, background: durationValid ? primaryButtonStyle.background : '#D1D5DB', cursor: durationValid && !saving ? 'pointer' : 'default' }}
         >
           {saving ? 'Saving…' : initial ? 'Save changes' : 'Save activity'}
         </button>
+        </div>
       </div>
     </div>
   )

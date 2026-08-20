@@ -6,8 +6,7 @@ export type Screen =
   | 'progress'
   | 'history'
   | 'sessionEdit'
-  | 'activityCategory'
-  | 'activityType'
+  | 'logActivity'
   | 'activityForm'
 
 export type ActivityDetails = Record<string, string | number | boolean>

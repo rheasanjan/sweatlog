@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { ChevronLeft, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { logBodyCheckin, fetchStrengthHistory } from '../lib/supabase'
 import type { Session, BodyLogEntry, Exercise } from '../types'
+import { theme } from '../styles/theme'
+import { cardStyle, inputStyle, labelStyle, primaryButtonStyle } from '../styles/ui'
+import ScreenHeader from './ui/ScreenHeader'
 
 interface ChartDataPoint {
   date: string
@@ -18,7 +21,7 @@ export interface ProgressProps {
   onCheckinSaved: () => Promise<void>
 }
 
-export default function Progress({ sessions, bodyLog, exercises, onBack, onCheckinSaved }: ProgressProps) {
+export default function Progress({ sessions, bodyLog, exercises, onBack, onCheckinSaved }: Readonly<ProgressProps>) {
   const [showCheckin, setShowCheckin] = useState(false)
   const [selectedExId, setSelectedExId] = useState('')
   const [strengthData, setStrengthData] = useState<ChartDataPoint[]>([])
@@ -62,15 +65,10 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
   const loggedExercises = exercises.filter(e => e.id && loggedExerciseIds.has(e.id))
 
   return (
-    <div>
-      <div style={{ background: '#0F172A', padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <ChevronLeft size={18} color="#fff" />
-        </button>
-        <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>Progress</div>
-      </div>
+    <div style={{ minHeight: '100vh', background: theme.colors.background }}>
+      <ScreenHeader title="Progress" subtitle="Your trends and training progress" onBack={onBack} />
 
-      <div style={{ padding: '16px 16px 100px' }}>
+      <div style={{ padding: '18px 20px 100px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 20 }}>
           <StatCard label="Sessions" value={sessions.length} />
           <StatCard label="Current weight" value={latestWeight != null ? `${latestWeight}kg` : '—'} />
@@ -82,14 +80,14 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
           {weightData.length < 2 ? (
             <Empty text="Log at least 2 entries to see the chart." />
           ) : (
-            <Chart data={weightData} dataKey="weight" color="#2563EB" unit="kg" />
+            <Chart data={weightData} dataKey="weight" color={theme.colors.brand} unit="kg" />
           )}
         </Card>
 
         {waistData.length >= 2 && (
           <Card>
             <CardHeader label="Waist circumference" />
-            <Chart data={waistData} dataKey="waist" color="#7C3AED" unit="cm" />
+            <Chart data={waistData} dataKey="waist" color="#6C4FFF" unit="cm" />
           </Card>
         )}
 
@@ -102,16 +100,16 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
               <select
                 value={selectedExId}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleExerciseChange(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 13, marginBottom: 12, background: '#fff', color: '#0F172A' }}
+                style={{ ...inputStyle, fontSize: 13, marginBottom: 12 }}
               >
                 <option value="">Select an exercise…</option>
                 {loggedExercises.map(e => (
                   <option key={e.id} value={e.id}>{e.name}</option>
                 ))}
               </select>
-              {loadingStrength && <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12, padding: 16 }}>Loading…</div>}
+              {loadingStrength && <div style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 12, padding: 16 }}>Loading…</div>}
               {!loadingStrength && strengthData.length >= 2 && (
-                <Chart data={strengthData} dataKey="weight" color="#059669" unit="kg" />
+                <Chart data={strengthData} dataKey="weight" color="#22B573" unit="kg" />
               )}
               {!loadingStrength && selectedExId && strengthData.length < 2 && (
                 <Empty text="Need at least 2 sessions with this exercise to show a chart." />
@@ -120,15 +118,15 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
           )}
         </Card>
 
-        <div style={{ background: '#0F172A', borderRadius: 14, padding: '16px', display: 'flex', justifyContent: 'space-around' }}>
+        <div style={{ background: `linear-gradient(135deg, ${theme.colors.navy} 0%, ${theme.colors.navySoft} 100%)`, borderRadius: 16, padding: '18px 16px', display: 'flex', justifyContent: 'space-around' }}>
           {([
             ['Sessions', sessions.length],
             ['Weight logs', bodyLog.length],
             ['Exercises', exercises.length],
           ] as const).map(([label, val]) => (
             <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{val}</div>
-              <div style={{ fontSize: 10, color: '#64748B', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+              <div style={{ fontFamily: theme.font.display, fontSize: 20, fontWeight: 800, color: theme.colors.white }}>{val}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
             </div>
           ))}
         </div>
@@ -145,17 +143,17 @@ interface StatCardProps {
   highlight?: boolean
 }
 
-function StatCard({ label, value, highlight }: StatCardProps) {
+function StatCard({ label, value, highlight }: Readonly<StatCardProps>) {
   return (
-    <div style={{ background: '#fff', borderRadius: 12, padding: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-      <div style={{ fontSize: 18, fontWeight: 800, color: highlight ? '#10B981' : '#0F172A' }}>{value}</div>
-      <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>{label}</div>
+    <div style={{ ...cardStyle, padding: '12px 8px', textAlign: 'center' }}>
+      <div style={{ fontFamily: theme.font.display, fontSize: 17, fontWeight: 800, color: highlight ? '#22B573' : theme.colors.text }}>{value}</div>
+      <div style={{ fontSize: 10, color: theme.colors.muted, marginTop: 3 }}>{label}</div>
     </div>
   )
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <div style={{ background: '#fff', borderRadius: 14, padding: '16px', marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>{children}</div>
+function Card({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <div style={{ ...cardStyle, padding: '16px', marginBottom: 16 }}>{children}</div>
 }
 
 interface CardHeaderProps {
@@ -164,12 +162,12 @@ interface CardHeaderProps {
   actionLabel?: string
 }
 
-function CardHeader({ label, onAction, actionLabel }: CardHeaderProps) {
+function CardHeader({ label, onAction, actionLabel }: Readonly<CardHeaderProps>) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-      <div style={{ fontWeight: 800, fontSize: 14 }}>{label}</div>
+      <div style={{ fontFamily: theme.font.display, fontWeight: 800, fontSize: 14 }}>{label}</div>
       {onAction && (
-        <button onClick={onAction} style={{ background: '#EFF6FF', color: '#2563EB', border: 'none', borderRadius: 20, padding: '5px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button type="button" onClick={onAction} style={{ background: '#EEF0FF', color: theme.colors.brand, border: 'none', borderRadius: 20, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
           <Plus size={12} /> {actionLabel}
         </button>
       )}
@@ -177,8 +175,8 @@ function CardHeader({ label, onAction, actionLabel }: CardHeaderProps) {
   )
 }
 
-function Empty({ text }: { text: string }) {
-  return <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12, padding: '16px 0' }}>{text}</div>
+function Empty({ text }: Readonly<{ text: string }>) {
+  return <div style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 12, padding: '16px 0' }}>{text}</div>
 }
 
 interface ChartProps {
@@ -188,13 +186,13 @@ interface ChartProps {
   unit: string
 }
 
-function Chart({ data, dataKey, color, unit }: ChartProps) {
+function Chart({ data, dataKey, color, unit }: Readonly<ChartProps>) {
   return (
     <ResponsiveContainer width="100%" height={160}>
       <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94A3B8' }} />
-        <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} domain={['dataMin - 1', 'dataMax + 1']} />
+        <CartesianGrid strokeDasharray="3 3" stroke={theme.colors.line} />
+        <XAxis dataKey="date" tick={{ fontSize: 10, fill: theme.colors.muted }} />
+        <YAxis tick={{ fontSize: 10, fill: theme.colors.muted }} domain={['dataMin - 1', 'dataMax + 1']} />
         <Tooltip formatter={(v: number) => [`${v}${unit}`, '']} labelStyle={{ fontSize: 11 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
         <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} />
       </LineChart>
@@ -207,7 +205,7 @@ interface CheckinModalProps {
   onSaved: () => Promise<void>
 }
 
-function CheckinModal({ onClose, onSaved }: CheckinModalProps) {
+function CheckinModal({ onClose, onSaved }: Readonly<CheckinModalProps>) {
   const [weight, setWeight] = useState('')
   const [waist, setWaist] = useState('')
   const [energy, setEnergy] = useState<number | null>(null)
@@ -226,12 +224,12 @@ function CheckinModal({ onClose, onSaved }: CheckinModalProps) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px', width: '100%' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,17,32,0.62)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: theme.colors.white, border: `1px solid ${theme.colors.line}`, borderRadius: '22px 22px 0 0', padding: '22px 20px 32px', width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Log Today's Weight</div>
-          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={15} color="#64748B" />
+          <div style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800 }}>Log Today&apos;s Weight</div>
+          <button type="button" aria-label="Close" onClick={onClose} style={{ background: '#F0F2F6', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+            <X size={15} color={theme.colors.muted} />
           </button>
         </div>
 
@@ -244,16 +242,17 @@ function CheckinModal({ onClose, onSaved }: CheckinModalProps) {
         <FieldLabel>Energy today — optional</FieldLabel>
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           {[1, 2, 3, 4, 5].map(n => (
-            <button key={n} onClick={() => setEnergy(n)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1.5px solid ${energy === n ? '#2563EB' : '#E2E8F0'}`, background: energy === n ? '#2563EB' : '#fff', color: energy === n ? '#fff' : '#64748B', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
+            <button type="button" key={n} onClick={() => setEnergy(n)} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: `1px solid ${energy === n ? theme.colors.brand : theme.colors.line}`, background: energy === n ? theme.colors.brand : theme.colors.white, color: energy === n ? theme.colors.white : theme.colors.muted, fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>
               {['😴', '😐', '🙂', '😊', '⚡'][n - 1]}
             </button>
           ))}
         </div>
 
         <button
+          type="button"
           onClick={handleSave}
           disabled={!weight || saving}
-          style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: weight && !saving ? '#2563EB' : '#E2E8F0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: weight && !saving ? 'pointer' : 'default' }}
+          style={{ ...primaryButtonStyle, background: weight && !saving ? primaryButtonStyle.background : '#D1D5DB', cursor: weight && !saving ? 'pointer' : 'default' }}
         >
           {saving ? 'Saving…' : 'Save Entry'}
         </button>
@@ -262,15 +261,15 @@ function CheckinModal({ onClose, onSaved }: CheckinModalProps) {
   )
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>{children}</div>
+function FieldLabel({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <div style={labelStyle}>{children}</div>
 }
 
-function ModalInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function ModalInput(props: Readonly<React.InputHTMLAttributes<HTMLInputElement>>) {
   return (
     <input
       {...props}
-      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, marginBottom: 16, boxSizing: 'border-box', outline: 'none' }}
+      style={{ ...inputStyle, marginBottom: 16 }}
     />
   )
 }

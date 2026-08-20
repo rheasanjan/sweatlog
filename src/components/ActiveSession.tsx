@@ -4,6 +4,8 @@ import { DEFAULT_SETS, DEFAULT_REPS, isTimed, toDateInputValue, dateAtNoon, getP
 import { sessionExercisesToRows, countLoggedSets, emptySet } from '../lib/sessionSets'
 import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, addExerciseToWorkoutDay, updateSession } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
+import { theme } from '../styles/theme'
+import { cardStyle, primaryButtonStyle } from '../styles/ui'
 import type {
   WorkoutDay,
   WorkoutDayExercise,
@@ -132,7 +134,7 @@ export interface ActiveSessionProps {
   onPlanChanged?: () => Promise<void>
 }
 
-export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, resumeActivity, onBack, onFinished, onExerciseAdded, onPlanChanged }: ActiveSessionProps) {
+export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, resumeActivity, onBack, onFinished, onExerciseAdded, onPlanChanged }: Readonly<ActiveSessionProps>) {
   const color = workoutDay.color
   const initialLogDate = logDate || (resumeActivity ? new Date(resumeActivity.started_at) : new Date())
   const logDateKey = toDateInputValue(initialLogDate)
@@ -423,22 +425,22 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
 
   if (!dayExercises.length) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
+      <div style={{ minHeight: '100vh', padding: 24, textAlign: 'center', background: theme.colors.background }}>
         <p style={{ fontWeight: 700, marginBottom: 8 }}>No exercises on this day</p>
-        <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>Go back and use the gear icon to add exercises to {workoutDay.name}.</p>
-        <button onClick={handleBack} style={{ background: '#2563EB', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 20px', fontWeight: 700, cursor: 'pointer' }}>Go Back</button>
+        <p style={{ fontSize: 13, color: theme.colors.muted, marginBottom: 16 }}>Go back and use the gear icon to add exercises to {workoutDay.name}.</p>
+        <button type="button" onClick={handleBack} style={{ ...primaryButtonStyle, width: 'auto' }}>Go Back</button>
       </div>
     )
   }
 
   return (
-    <div style={{ background: '#F8FAFC', minHeight: '100vh' }}>
-      <div style={{ background: color, padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, zIndex: 30 }}>
-        <button onClick={handleBack} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+    <div style={{ background: theme.colors.background, minHeight: '100vh' }}>
+      <div style={{ background: `linear-gradient(135deg, ${theme.colors.navy} 0%, ${color} 140%)`, padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 30 }}>
+        <button type="button" aria-label="Back" onClick={handleBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
           <ChevronLeft size={18} color="#fff" />
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{workoutDay.name}</div>
+          <div style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800, color: theme.colors.white }}>{workoutDay.name}</div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
             {doneCount}/{totalSets} sets logged
             {saveStatus === 'saving' && ' · Saving…'}
@@ -448,7 +450,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
         </div>
       </div>
 
-      <div style={{ background: color, padding: '0 16px 12px' }}>
+      <div style={{ background: `linear-gradient(135deg, ${theme.colors.navy} 0%, ${color} 140%)`, padding: '0 20px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>Date</span>
           <input
@@ -456,35 +458,36 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
             value={logDateStr}
             max={toDateInputValue()}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleLogDateChange(e.target.value)}
-            style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', fontSize: 13, background: 'rgba(255,255,255,0.95)' }}
+            style={{ flex: 1, padding: '9px 11px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.18)', fontSize: 13, background: 'rgba(255,255,255,0.96)' }}
           />
         </div>
       </div>
 
       {restTimer !== null && restTimer > 0 && (
-        <div style={{ background: '#0F172A', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <Clock size={15} color="#94A3B8" />
+        <div style={{ background: theme.colors.navy, padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <Clock size={15} color={theme.colors.muted} />
           <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Rest {restTimer}s</span>
-          <button onClick={() => setRestTimer(null)} style={{ background: '#1E293B', border: 'none', color: '#94A3B8', borderRadius: 20, padding: '2px 10px', fontSize: 11, cursor: 'pointer' }}>Skip</button>
+          <button type="button" onClick={() => setRestTimer(null)} style={{ background: theme.colors.navySoft, border: 'none', color: '#CBD5E1', borderRadius: 20, padding: '3px 11px', fontSize: 11, cursor: 'pointer' }}>Skip</button>
         </div>
       )}
 
-      <div style={{ padding: '12px 16px 120px' }}>
+      <div style={{ padding: '14px 20px 120px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {sessionExercises.map((ex, exIdx) => {
             const displayName = ex.altUsed && ex.altName ? ex.altName : ex.exerciseName
             const timed = isTimed(ex.targetReps)
             return (
-              <div key={exIdx} style={{ background: '#fff', borderRadius: 14, padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div key={exIdx} style={{ ...cardStyle, padding: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3, gap: 8 }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: '#0F172A', flex: 1 }}>{displayName}</div>
+                  <div style={{ fontFamily: theme.font.display, fontWeight: 800, fontSize: 15, color: theme.colors.text, flex: 1 }}>{displayName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {ex.altName && (
-                      <button onClick={() => toggleAlt(exIdx)} style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, border: 'none', cursor: 'pointer', background: ex.altUsed ? color : '#F1F5F9', color: ex.altUsed ? '#fff' : '#64748B' }}>
+                      <button type="button" onClick={() => toggleAlt(exIdx)} style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: ex.altUsed ? color : '#F0F2F6', color: ex.altUsed ? theme.colors.white : theme.colors.muted }}>
                         ⇄ Alt
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => removeExercise(exIdx)}
                       title="Skip today"
                       style={{ background: '#FEF2F2', border: 'none', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
@@ -493,10 +496,10 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                     </button>
                   </div>
                 </div>
-                <div style={{ fontSize: 11, color: '#94A3B8', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 10 }}>
                   Target: {ex.targetSets}×{ex.targetReps}
                   {ex.lastWeekLabel && (
-                    <span style={{ color: '#64748B', fontWeight: 600 }}> · Last week max: {ex.lastWeekLabel}</span>
+                    <span style={{ color: theme.colors.muted, fontWeight: 600 }}> · Last week max: {ex.lastWeekLabel}</span>
                   )}
                 </div>
 
@@ -513,7 +516,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                     const repeat = setRepeatCount(set)
                     return (
                     <div key={setIdx} style={{ display: 'grid', gridTemplateColumns: setGridCols, gap: 6, alignItems: 'center' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textAlign: 'center' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: theme.colors.muted, textAlign: 'center' }}>
                         {repeat > 1 ? `${set.setNumber}×${repeat}` : set.setNumber}
                       </div>
                       <input
@@ -522,7 +525,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                         placeholder={timed ? 'secs' : (ex.lastBest?.weight_kg != null ? String(ex.lastBest.weight_kg) : '0')}
                         value={set.weight}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'weight', e.target.value)}
-                        style={{ padding: '9px 4px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : '#fff', outline: 'none' }}
+                        style={{ padding: '9px 4px', borderRadius: 10, border: `1px solid ${set.done ? '#22B573' : theme.colors.line}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#E7F8EF' : theme.colors.white, outlineColor: theme.colors.brand }}
                       />
                       <input
                         type="number"
@@ -531,7 +534,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                         value={set.reps}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'reps', e.target.value)}
                         disabled={timed}
-                        style={{ padding: '9px 4px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
+                        style={{ padding: '9px 4px', borderRadius: 10, border: `1px solid ${set.done ? '#22B573' : theme.colors.line}`, fontSize: 14, textAlign: 'center', width: '100%', background: set.done ? '#E7F8EF' : timed ? theme.colors.background : theme.colors.white, outlineColor: theme.colors.brand, opacity: timed ? 0.4 : 1 }}
                       />
                       <input
                         type="number"
@@ -542,9 +545,9 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                         value={set.repeat ?? '1'}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSet(exIdx, setIdx, 'repeat', e.target.value)}
                         disabled={timed}
-                        style={{ padding: '9px 2px', borderRadius: 8, border: `1.5px solid ${set.done ? '#10B981' : '#E2E8F0'}`, fontSize: 13, textAlign: 'center', width: '100%', background: set.done ? '#F0FDF4' : timed ? '#F8FAFC' : '#fff', outline: 'none', opacity: timed ? 0.4 : 1 }}
+                        style={{ padding: '9px 2px', borderRadius: 10, border: `1px solid ${set.done ? '#22B573' : theme.colors.line}`, fontSize: 13, textAlign: 'center', width: '100%', background: set.done ? '#E7F8EF' : timed ? theme.colors.background : theme.colors.white, outlineColor: theme.colors.brand, opacity: timed ? 0.4 : 1 }}
                       />
-                      <button onClick={() => toggleDone(exIdx, setIdx)} style={{ width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', background: set.done ? '#10B981' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                      <button type="button" onClick={() => toggleDone(exIdx, setIdx)} style={{ width: 36, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer', background: set.done ? '#22B573' : '#F0F2F6', display: 'grid', placeItems: 'center', transition: 'all 0.15s' }}>
                         <Check size={16} color={set.done ? '#fff' : '#CBD5E1'} strokeWidth={3} />
                       </button>
                     </div>
@@ -552,7 +555,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
                   })}
                 </div>
                 <div style={{ fontSize: 10, color: '#CBD5E1', marginTop: 8 }}>Use × for identical sets (e.g. 12kg × 12 × 2)</div>
-                <button onClick={() => addSet(exIdx)} style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <button type="button" onClick={() => addSet(exIdx)} style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                   + Add Set
                 </button>
               </div>
@@ -561,16 +564,18 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
         </div>
 
         <button
+          type="button"
           onClick={() => setShowAddExercise(true)}
-          style={{ width: '100%', marginTop: 16, background: '#fff', border: `1.5px dashed ${color}`, borderRadius: 12, padding: '14px', fontSize: 13, fontWeight: 700, color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          style={{ width: '100%', marginTop: 16, background: '#F1EEFF', border: `1px dashed ${color}`, borderRadius: 16, padding: '14px', fontSize: 13, fontWeight: 700, color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <Plus size={16} /> Add Exercise
         </button>
 
         <button
+          type="button"
           onClick={handleFinish}
           disabled={saving}
-          style={{ width: '100%', marginTop: 12, background: saving ? '#94A3B8' : '#0F172A', color: '#fff', border: 'none', borderRadius: 14, padding: '16px', fontSize: 15, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}
+          style={{ ...primaryButtonStyle, marginTop: 12, background: saving ? '#9CA3AF' : primaryButtonStyle.background, cursor: saving ? 'default' : 'pointer' }}
         >
           {saving ? 'Saving…' : 'Finish Session'}
         </button>

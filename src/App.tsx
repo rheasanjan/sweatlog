@@ -8,10 +8,10 @@ import Progress from './components/Progress'
 import History from './components/History'
 import SessionEdit from './components/SessionEdit'
 import BottomNav from './components/BottomNav'
-import ActivityCategoryPicker from './components/ActivityCategoryPicker'
-import ActivityTypePicker from './components/ActivityTypePicker'
+import LogActivityPicker from './components/LogActivityPicker'
 import LightweightActivityForm from './components/LightweightActivityForm'
 import { typesForCategory, type ActivityTypeOption } from './lib/activityCatalog'
+import { theme } from './styles/theme'
 import {
   fetchRecentSessions,
   fetchBodyLog,
@@ -21,7 +21,7 @@ import {
   fetchWorkoutDayExercises,
 } from './lib/supabase'
 
-type EditReturnScreen = 'home' | 'picker' | 'history' | 'activityCategory'
+type EditReturnScreen = 'home' | 'picker' | 'history' | 'logActivity'
 type NonStrengthCategory = Exclude<ActivityCategory, 'strength'>
 
 function resolveActivityType(activity: Activity): ActivityTypeOption | null {
@@ -31,7 +31,8 @@ function resolveActivityType(activity: Activity): ActivityTypeOption | null {
   return {
     id: 'other',
     label: activity.name || 'Other',
-    color: activity.color || '#0891B2',
+    color: activity.color || '#00A9A0',
+    icon: 'circle-plus',
   }
 }
 
@@ -173,35 +174,22 @@ export default function App() {
   }
 
   return (
-    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", background: '#F8FAFC', minHeight: '100vh', color: '#0F172A', paddingBottom: hideBottomNav ? 0 : 70 }}>
+    <div style={{ fontFamily: theme.font.body, background: theme.colors.background, minHeight: '100vh', maxWidth: 480, margin: '0 auto', color: theme.colors.text, paddingBottom: hideBottomNav ? 0 : 78, boxShadow: '0 0 50px rgba(11,17,32,0.08)' }}>
       {screen === 'home' && (
         <Home
           activities={sessions}
           bodyLog={bodyLog}
-          onStart={() => setScreen('activityCategory')}
+          onStart={() => setScreen('logActivity')}
           onEditSession={(session) => openSessionEdit(session, 'home')}
         />
       )}
-      {screen === 'activityCategory' && (
-        <ActivityCategoryPicker
+      {screen === 'logActivity' && (
+        <LogActivityPicker
+          activities={sessions}
           onBack={() => setScreen('home')}
-          onSelectCategory={(category) => {
-            if (category === 'strength') {
-              setScreen('picker')
-              return
-            }
+          onSelectStrength={() => setScreen('picker')}
+          onSelectType={(category, type) => {
             setSelectedCategory(category)
-            setSelectedType(null)
-            setEditingLightweight(null)
-            setScreen('activityType')
-          }}
-        />
-      )}
-      {screen === 'activityType' && selectedCategory && (
-        <ActivityTypePicker
-          category={selectedCategory}
-          onBack={() => setScreen('activityCategory')}
-          onSelectType={(type) => {
             setSelectedType(type)
             setEditingLightweight(null)
             setScreen('activityForm')
@@ -218,10 +206,10 @@ export default function App() {
               setEditingLightweight(null)
               setSelectedCategory(null)
               setSelectedType(null)
-              setScreen(editReturnScreen === 'activityCategory' ? 'home' : editReturnScreen)
+              setScreen(editReturnScreen)
               return
             }
-            setScreen('activityType')
+            setScreen('logActivity')
           }}
           onSaved={async () => {
             setEditingLightweight(null)
@@ -240,7 +228,7 @@ export default function App() {
           muscleGroups={muscleGroups}
           onBack={() => {
             setResumeActivity(null)
-            setScreen('activityCategory')
+            setScreen('logActivity')
           }}
           onSelect={(day, logDate) => startSession(day, logDate, 'picker')}
           onResume={resumeSession}
@@ -292,7 +280,7 @@ export default function App() {
           muscleGroups={muscleGroups}
           onBack={() => {
             setEditingSession(null)
-            setScreen(editReturnScreen === 'activityCategory' ? 'home' : editReturnScreen)
+            setScreen(editReturnScreen)
           }}
           onSaved={refreshData}
         />

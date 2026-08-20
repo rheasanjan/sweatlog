@@ -4,10 +4,26 @@ import { ACTIVITY_CATEGORIES, getActivityType, typesForCategory } from './activi
 describe('activityCatalog', () => {
   it('lists four top-level categories with colors', () => {
     expect(ACTIVITY_CATEGORIES.map(c => c.id)).toEqual(['strength', 'cardio', 'sport', 'mobility'])
-    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'cardio')?.color).toBe('#0891B2')
-    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'sport')?.color).toBe('#D97706')
-    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'mobility')?.color).toBe('#059669')
-    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'strength')?.color).toBe('#2563EB')
+    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'cardio')).toMatchObject({
+      color: '#00A9A0',
+      softColor: '#E4F7F5',
+      icon: 'heart-pulse',
+    })
+    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'sport')).toMatchObject({
+      color: '#FF8A3D',
+      softColor: '#FFF1E5',
+      icon: 'trophy',
+    })
+    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'mobility')).toMatchObject({
+      color: '#22B573',
+      softColor: '#E7F8EF',
+      icon: 'person-standing',
+    })
+    expect(ACTIVITY_CATEGORIES.find(c => c.id === 'strength')).toMatchObject({
+      color: '#6C4FFF',
+      softColor: '#F1EEFF',
+      icon: 'dumbbell',
+    })
   })
 
   it('returns cardio types including Run and Incline Walk', () => {
@@ -21,7 +37,10 @@ describe('activityCatalog', () => {
       'Zumba / Dance',
       'Other',
     ])
-    expect(types.find(t => t.id === 'run')?.label).toBe('Run')
+    expect(types.find(t => t.id === 'run')).toMatchObject({
+      label: 'Run',
+      icon: 'footprints',
+    })
   })
 
   it('returns sport types including Pickleball', () => {

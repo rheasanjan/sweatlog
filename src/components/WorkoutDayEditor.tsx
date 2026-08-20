@@ -4,6 +4,8 @@ import { DEFAULT_SETS, DEFAULT_REPS } from '../lib/program'
 import { addCustomExercise, addExerciseToWorkoutDay, deleteWorkoutDay, removeExerciseFromWorkoutDay } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
 import type { WorkoutDay, WorkoutDayExercise, Exercise, MuscleGroup } from '../types'
+import { theme } from '../styles/theme'
+import { cardStyle } from '../styles/ui'
 
 export interface WorkoutDayEditorProps {
   workoutDay: WorkoutDay
@@ -15,7 +17,7 @@ export interface WorkoutDayEditorProps {
   onDeleted?: () => Promise<void> | void
 }
 
-export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, muscleGroups, onClose, onUpdated, onDeleted }: WorkoutDayEditorProps) {
+export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, muscleGroups, onClose, onUpdated, onDeleted }: Readonly<WorkoutDayEditorProps>) {
   const [showPicker, setShowPicker] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -92,29 +94,29 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,17,32,0.62)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: theme.colors.white, borderRadius: '22px 22px 0 0', padding: '22px 20px 32px', width: '100%', maxWidth: 480, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800 }}>{workoutDay.name}</div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Use the trash icon to remove from your plan</div>
+            <div style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800 }}>{workoutDay.name}</div>
+            <div style={{ fontSize: 12, color: theme.colors.muted, marginTop: 2 }}>Use the trash icon to remove from your plan</div>
           </div>
-          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={15} color="#64748B" />
+          <button type="button" aria-label="Close" onClick={onClose} style={{ background: '#F0F2F6', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+            <X size={15} color={theme.colors.muted} />
           </button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '16px 0' }}>
           {dayExercises.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 13, padding: 16 }}>No exercises yet. Add some below.</div>
+            <div style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 13, padding: 16 }}>No exercises yet. Add some below.</div>
           ) : (
             dayExercises.map(wde => (
-              <div key={wde.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F8FAFC', borderRadius: 10, padding: '10px 12px' }}>
+              <div key={wde.id} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{wde.exercises?.name}</div>
-                  <div style={{ fontSize: 11, color: '#94A3B8' }}>{wde.target_sets}×{wde.target_reps}</div>
+                  <div style={{ fontSize: 11, color: theme.colors.muted }}>{wde.target_sets}×{wde.target_reps}</div>
                 </div>
-                <button onClick={() => handleRemove(wde.id, wde.exercises?.name)} disabled={saving} title="Remove from plan" style={{ background: '#FEF2F2', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <button type="button" onClick={() => handleRemove(wde.id, wde.exercises?.name)} disabled={saving} title="Remove from plan" style={{ background: '#FEF2F2', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <Trash2 size={14} color="#DC2626" />
                 </button>
               </div>
@@ -123,8 +125,9 @@ export default function WorkoutDayEditor({ workoutDay, dayExercises, exercises, 
         </div>
 
         <button
+          type="button"
           onClick={() => setShowPicker(true)}
-          style={{ width: '100%', padding: '12px', borderRadius: 12, border: `1.5px dashed ${workoutDay.color}`, background: '#fff', color: workoutDay.color, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          style={{ width: '100%', padding: '13px', borderRadius: 14, border: `1px dashed ${workoutDay.color}`, background: '#F1EEFF', color: workoutDay.color, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <Plus size={16} /> Add Exercise
         </button>

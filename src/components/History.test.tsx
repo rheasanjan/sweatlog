@@ -65,8 +65,9 @@ describe('History', () => {
     expect(html).not.toContain('Not logged')
     expect(html).not.toContain('Week overview')
     expect(html.indexOf('45 min')).toBeLessThan(html.indexOf('60 min'))
-    expect(html).toContain('border-left:3px solid #7C3AED')
-    expect(html).toContain('border-left:3px solid #DC2626')
+    expect(html).toContain('background:#F1EEFF')
+    expect(html).toContain('aria-label="Edit Push"')
+    expect(html).not.toContain('border-left')
     expect(html).not.toContain('No sessions this week')
 
     vi.useRealTimers()

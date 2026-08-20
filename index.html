@@ -6,9 +6,16 @@
     <meta name="theme-color" content="#0F172A" />
     <title>Sweatlog</title>
     <link rel="manifest" href="/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet" />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #F8FAFC; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      html, body, #root { min-height: 100%; }
+      body { background: #F2F4F8; color: #0B1120; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+      button, input, select, textarea { font: inherit; }
+      button { -webkit-tap-highlight-color: transparent; }
+      button:active { transform: scale(0.985); }
       input[type=number]::-webkit-inner-spin-button,
       input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
       input[type=number] { -moz-appearance: textfield; }

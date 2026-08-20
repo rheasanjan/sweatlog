@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react'
 import { X, Plus, Search, ChevronLeft } from 'lucide-react'
 import { DEFAULT_SETS, DEFAULT_REPS } from '../lib/program'
 import type { Exercise, MuscleGroup } from '../types'
+import { theme } from '../styles/theme'
+import { cardStyle, inputStyle, labelStyle, primaryButtonStyle } from '../styles/ui'
 
 function muscleLabel(ex: Exercise): string {
   return (ex.exercise_muscle_groups || [])
@@ -30,7 +32,7 @@ export default function ExercisePickerModal({
   onClose,
   onSelectExisting,
   onCreateNew,
-}: ExercisePickerModalProps) {
+}: Readonly<ExercisePickerModalProps>) {
   const [mode, setMode] = useState<'list' | 'create'>('list')
   const [query, setQuery] = useState('')
   const [filterMuscle, setFilterMuscle] = useState('')
@@ -98,41 +100,41 @@ export default function ExercisePickerModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,17,32,0.62)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div
-        style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px', width: '100%', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
+        style={{ background: theme.colors.white, borderRadius: '22px 22px 0 0', padding: '22px 20px 32px', width: '100%', maxWidth: 480, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {mode === 'create' && (
-              <button onClick={() => setMode('list')} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                <ChevronLeft size={15} color="#64748B" />
+              <button type="button" aria-label="Back" onClick={() => setMode('list')} style={{ background: '#F0F2F6', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+                <ChevronLeft size={15} color={theme.colors.muted} />
               </button>
             )}
-            <div style={{ fontSize: 17, fontWeight: 800 }}>{mode === 'create' ? 'New Exercise' : title}</div>
+            <div style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800 }}>{mode === 'create' ? 'New Exercise' : title}</div>
           </div>
-          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <X size={15} color="#64748B" />
+          <button type="button" aria-label="Close" onClick={onClose} style={{ background: '#F0F2F6', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+            <X size={15} color={theme.colors.muted} />
           </button>
         </div>
 
         {mode === 'list' ? (
           <>
             <div style={{ position: 'relative', marginBottom: 10, flexShrink: 0 }}>
-              <Search size={16} color="#94A3B8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+              <Search size={16} color={theme.colors.muted} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 autoFocus
                 value={query}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                 placeholder="Search exercises…"
-                style={{ width: '100%', padding: '12px 12px 12px 38px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}
+                style={{ ...inputStyle, paddingLeft: 38 }}
               />
             </div>
             <select
               value={filterMuscle}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterMuscle(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 13, marginBottom: 12, background: '#fff', flexShrink: 0 }}
+              style={{ ...inputStyle, fontSize: 13, marginBottom: 12, flexShrink: 0 }}
             >
               <option value="">All muscle groups</option>
               {muscleGroups.map(mg => (
@@ -142,7 +144,7 @@ export default function ExercisePickerModal({
 
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginBottom: 12 }}>
               {available.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: 13, padding: '24px 12px' }}>
+                <div style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 13, padding: '24px 12px' }}>
                   {query || filterMuscle ? 'No exercises match your search.' : 'No exercises available.'}
                 </div>
               ) : (
@@ -150,12 +152,13 @@ export default function ExercisePickerModal({
                   {available.map(ex => (
                     <button
                       key={ex.id}
+                      type="button"
                       onClick={() => handleSelect(ex)}
                       disabled={saving}
-                      style={{ textAlign: 'left', background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '12px 14px', cursor: saving ? 'default' : 'pointer' }}
+                      style={{ ...cardStyle, textAlign: 'left', padding: '12px 14px', cursor: saving ? 'default' : 'pointer' }}
                     >
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#0F172A' }}>{ex.name}</div>
-                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{muscleLabel(ex)}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: theme.colors.text }}>{ex.name}</div>
+                      <div style={{ fontSize: 11, color: theme.colors.muted, marginTop: 2 }}>{muscleLabel(ex)}</div>
                     </button>
                   ))}
                 </div>
@@ -163,8 +166,9 @@ export default function ExercisePickerModal({
             </div>
 
             <button
+              type="button"
               onClick={() => setMode('create')}
-              style={{ width: '100%', padding: '14px', borderRadius: 12, border: `1.5px dashed ${color}`, background: '#fff', color, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexShrink: 0 }}
+              style={{ width: '100%', padding: '14px', borderRadius: 14, border: `1px dashed ${color}`, background: '#F1EEFF', color, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexShrink: 0 }}
             >
               <Plus size={16} /> Create new exercise
             </button>
@@ -179,7 +183,7 @@ export default function ExercisePickerModal({
             <select
               value={muscleGroupId}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMuscleGroupId(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, marginBottom: 16, background: '#fff' }}
+              style={{ ...inputStyle, marginBottom: 16 }}
             >
               {muscleGroups.map(mg => (
                 <option key={mg.id} value={mg.id}>{mg.label}</option>
@@ -188,9 +192,10 @@ export default function ExercisePickerModal({
             <FieldLabel>Number of sets</FieldLabel>
             <SetPicker sets={sets} onChange={setSets} color={color} />
             <button
+              type="button"
               onClick={handleCreate}
               disabled={!name.trim() || saving}
-              style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: name.trim() && !saving ? color : '#E2E8F0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: name.trim() && !saving ? 'pointer' : 'default' }}
+              style={{ ...primaryButtonStyle, background: name.trim() && !saving ? primaryButtonStyle.background : '#D1D5DB', cursor: name.trim() && !saving ? 'pointer' : 'default' }}
             >
               {saving ? 'Saving…' : 'Add Exercise'}
             </button>
@@ -207,7 +212,7 @@ interface SetPickerProps {
   color: string
 }
 
-function SetPicker({ sets, onChange, color }: SetPickerProps) {
+function SetPicker({ sets, onChange, color }: Readonly<SetPickerProps>) {
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
       {[2, 3, 4, 5].map(n => (
@@ -215,7 +220,7 @@ function SetPicker({ sets, onChange, color }: SetPickerProps) {
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1.5px solid ${sets === n ? color : '#E2E8F0'}`, background: sets === n ? color : '#fff', color: sets === n ? '#fff' : '#64748B', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+          style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: `1px solid ${sets === n ? color : theme.colors.line}`, background: sets === n ? color : theme.colors.white, color: sets === n ? theme.colors.white : theme.colors.muted, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
         >
           {n}
         </button>
@@ -224,15 +229,15 @@ function SetPicker({ sets, onChange, color }: SetPickerProps) {
   )
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>{children}</div>
+function FieldLabel({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <div style={labelStyle}>{children}</div>
 }
 
-function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function FieldInput(props: Readonly<React.InputHTMLAttributes<HTMLInputElement>>) {
   return (
     <input
       {...props}
-      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, marginBottom: 16, boxSizing: 'border-box', outline: 'none' }}
+      style={{ ...inputStyle, marginBottom: 16 }}
     />
   )
 }

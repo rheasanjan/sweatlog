@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { Dumbbell, ChevronLeft, Plus, Settings2 } from 'lucide-react'
+import { Dumbbell, Plus, Settings2 } from 'lucide-react'
 import {
   DAY_COLORS, lightColor, weekStartKey, toDateInputValue,
   formatWeekRange, startOfWeek,
@@ -7,6 +7,9 @@ import {
 import { createWorkoutDay, fetchInProgressSession, fetchWorkoutDayExercises } from '../lib/supabase'
 import WorkoutDayEditor from './WorkoutDayEditor'
 import type { Activity, WorkoutDay, Session, Exercise, MuscleGroup, WorkoutDayExercise } from '../types'
+import { categoryTheme, theme } from '../styles/theme'
+import { cardStyle, inputStyle, labelStyle, primaryButtonStyle } from '../styles/ui'
+import ScreenHeader from './ui/ScreenHeader'
 
 function daysAgo(dateStr: string | null | undefined): string {
   if (!dateStr) return 'Never done yet'
@@ -63,7 +66,7 @@ export async function selectTemplateWithLock(
 export default function Picker({
   workoutDays, sessions, exercises, muscleGroups,
   onBack, onSelect, onResume, onDaysChanged,
-}: PickerProps) {
+}: Readonly<PickerProps>) {
   const [showCreate, setShowCreate] = useState(false)
   const [editingDay, setEditingDay] = useState<WorkoutDay | null>(null)
   const [editingExercises, setEditingExercises] = useState<WorkoutDayExercise[]>([])
@@ -103,31 +106,26 @@ export default function Picker({
   }
 
   return (
-    <div>
-      <div style={{ background: '#0F172A', padding: '18px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <ChevronLeft size={18} color="#fff" />
-        </button>
-        <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>Choose Your Workout</div>
-      </div>
+    <div style={{ minHeight: '100vh', background: theme.colors.background }}>
+      <ScreenHeader title="Choose Your Workout" subtitle="Pick a strength template" onBack={onBack} accent="#342779" />
 
-      <div style={{ padding: '16px' }}>
-        <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 8 }}>Workout date</div>
+      <div style={{ padding: '18px 20px 28px' }}>
+        <div style={{ ...cardStyle, padding: '14px', marginBottom: 16 }}>
+          <div style={labelStyle}>Workout date</div>
           <input
             type="date"
             value={logDate}
             max={toDateInputValue()}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLogDate(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, boxSizing: 'border-box' }}
+            style={inputStyle}
           />
-          <div style={{ fontSize: 11, color: loggingCurrentWeek ? '#94A3B8' : '#2563EB', marginTop: 6, fontWeight: loggingCurrentWeek ? 400 : 600 }}>
+          <div style={{ fontSize: 11, color: loggingCurrentWeek ? theme.colors.muted : theme.colors.brand, marginTop: 7, fontWeight: loggingCurrentWeek ? 400 : 600 }}>
             {loggingCurrentWeek
               ? 'Logging for this week.'
               : `Backfilling for week of ${selectedWeekLabel}.`}
           </div>
         </div>
-        <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: theme.colors.muted, marginBottom: 16, lineHeight: 1.6 }}>
           Pick a workout template to start a new session or resume one in progress.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -138,35 +136,36 @@ export default function Picker({
               <div key={day.id}>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
+                    type="button"
                     onClick={() => handleDayClick(day)}
                     style={{
-                      flex: 1, textAlign: 'left', background: '#fff',
-                      border: '1.5px solid #E2E8F0',
-                      borderRadius: 14, padding: '16px',
+                      ...cardStyle,
+                      flex: 1, textAlign: 'left',
+                      padding: '15px',
                       cursor: 'pointer',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                     }}
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{day.name}</span>
+                        <span style={{ fontFamily: theme.font.display, fontSize: 16, fontWeight: 800, color: theme.colors.text }}>{day.name}</span>
                       </div>
-                      {day.subtitle && <div style={{ fontSize: 12, color: '#64748B', marginTop: 3 }}>{day.subtitle}</div>}
-                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                      {day.subtitle && <div style={{ fontSize: 12, color: theme.colors.muted, marginTop: 3 }}>{day.subtitle}</div>}
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
                         {daysAgo(last?.started_at)}
                       </div>
                     </div>
-                    <div style={{ width: 38, height: 38, borderRadius: '50%', background: light, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: 12 }}>
-                      <Dumbbell size={17} color={day.color} />
+                    <div style={{ width: 42, height: 42, borderRadius: 12, background: light || categoryTheme.strength.softColor, display: 'grid', placeItems: 'center', flexShrink: 0, marginLeft: 12 }}>
+                      <Dumbbell size={18} color={day.color || categoryTheme.strength.color} />
                     </div>
                   </button>
                   <button
+                    type="button"
                     onClick={() => openEditor(day)}
-                    style={{ width: 44, background: '#fff', border: '1.5px solid #E2E8F0', borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    style={{ width: 46, background: theme.colors.white, border: `1px solid ${theme.colors.line}`, borderRadius: 14, cursor: 'pointer', display: 'grid', placeItems: 'center', flexShrink: 0 }}
                     title="Edit exercises"
                   >
-                    <Settings2 size={18} color="#64748B" />
+                    <Settings2 size={18} color={theme.colors.muted} />
                   </button>
                 </div>
               </div>
@@ -175,8 +174,9 @@ export default function Picker({
         </div>
 
         <button
+          type="button"
           onClick={() => setShowCreate(true)}
-          style={{ width: '100%', marginTop: 14, background: '#fff', border: '1.5px dashed #2563EB', borderRadius: 14, padding: '14px', fontSize: 13, fontWeight: 700, color: '#2563EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          style={{ width: '100%', marginTop: 14, background: categoryTheme.strength.softColor, border: `1px dashed ${categoryTheme.strength.color}`, borderRadius: 16, padding: '14px', fontSize: 13, fontWeight: 700, color: categoryTheme.strength.color, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
         >
           <Plus size={16} /> New Workout Day
         </button>
@@ -217,7 +217,7 @@ interface CreateWorkoutDayModalProps {
   onCreated: (day: WorkoutDay) => Promise<void>
 }
 
-function CreateWorkoutDayModal({ onClose, onCreated }: CreateWorkoutDayModalProps) {
+function CreateWorkoutDayModal({ onClose, onCreated }: Readonly<CreateWorkoutDayModalProps>) {
   const [name, setName] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [color, setColor] = useState(DAY_COLORS[0])
@@ -236,9 +236,9 @@ function CreateWorkoutDayModal({ onClose, onCreated }: CreateWorkoutDayModalProp
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-end', zIndex: 50 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 16px 32px', width: '100%' }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 16 }}>New Workout Day</div>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,17,32,0.62)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: theme.colors.white, borderRadius: '22px 22px 0 0', padding: '22px 20px 32px', width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800, marginBottom: 18 }}>New Workout Day</div>
         <Label>Name</Label>
         <Input autoFocus value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)} placeholder="e.g. Glutes, Upper, Full Body" />
         <Label>Subtitle (optional)</Label>
@@ -246,13 +246,14 @@ function CreateWorkoutDayModal({ onClose, onCreated }: CreateWorkoutDayModalProp
         <Label>Color</Label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {DAY_COLORS.map(c => (
-            <button key={c} onClick={() => setColor(c)} style={{ width: 36, height: 36, borderRadius: '50%', border: color === c ? '3px solid #0F172A' : '2px solid #E2E8F0', background: c, cursor: 'pointer' }} />
+            <button type="button" key={c} onClick={() => setColor(c)} style={{ width: 36, height: 36, borderRadius: '50%', border: color === c ? `3px solid ${theme.colors.navy}` : `2px solid ${theme.colors.line}`, background: c, cursor: 'pointer' }} />
           ))}
         </div>
         <button
+          type="button"
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: name.trim() && !saving ? color : '#E2E8F0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: name.trim() && !saving ? 'pointer' : 'default' }}
+          style={{ ...primaryButtonStyle, background: name.trim() && !saving ? primaryButtonStyle.background : '#D1D5DB', cursor: name.trim() && !saving ? 'pointer' : 'default' }}
         >
           {saving ? 'Creating…' : 'Create & Add Exercises'}
         </button>
@@ -261,15 +262,15 @@ function CreateWorkoutDayModal({ onClose, onCreated }: CreateWorkoutDayModalProp
   )
 }
 
-function Label({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B', marginBottom: 6 }}>{children}</div>
+function Label({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <div style={labelStyle}>{children}</div>
 }
 
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function Input(props: Readonly<React.InputHTMLAttributes<HTMLInputElement>>) {
   return (
     <input
       {...props}
-      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #E2E8F0', fontSize: 14, marginBottom: 16, boxSizing: 'border-box', outline: 'none' }}
+      style={{ ...inputStyle, marginBottom: 16 }}
     />
   )
 }

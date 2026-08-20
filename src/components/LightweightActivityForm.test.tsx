@@ -13,7 +13,7 @@ describe('LightweightActivityForm', () => {
     const html = renderToStaticMarkup(
       <LightweightActivityForm
         category="cardio"
-        activityType={{ id: 'run', label: 'Run', color: '#0891B2' }}
+        activityType={{ id: 'run', label: 'Run', color: '#00A9A0', icon: 'footprints' }}
         onBack={() => undefined}
         onSaved={() => undefined}
       />,
