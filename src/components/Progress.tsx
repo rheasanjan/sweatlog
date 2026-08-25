@@ -1,7 +1,13 @@
-import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Dumbbell, Plus, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { logBodyCheckin, fetchStrengthHistory } from '../lib/supabase'
+import {
+  buildProgressStats,
+  filterPointsInRange,
+  rangeWindows,
+  type ProgressRange,
+} from '../lib/progressRange'
 import type { Session, BodyLogEntry, Exercise } from '../types'
 import { theme } from '../styles/theme'
 import { cardStyle, inputStyle, labelStyle, primaryButtonStyle } from '../styles/ui'
@@ -23,30 +29,43 @@ export interface ProgressProps {
 
 export default function Progress({ sessions, bodyLog, exercises, onBack, onCheckinSaved }: Readonly<ProgressProps>) {
   const [showCheckin, setShowCheckin] = useState(false)
+  const [range, setRange] = useState<ProgressRange>('30d')
   const [selectedExId, setSelectedExId] = useState('')
-  const [strengthData, setStrengthData] = useState<ChartDataPoint[]>([])
+  const [strengthRaw, setStrengthRaw] = useState<ChartDataPoint[]>([])
   const [loadingStrength, setLoadingStrength] = useState(false)
 
+  const now = useMemo(() => new Date(), [range, sessions, bodyLog])
+  const stats = useMemo(
+    () => buildProgressStats({ sessions, bodyLog, range, now }),
+    [sessions, bodyLog, range, now],
+  )
+  const { current } = useMemo(() => rangeWindows(range, now), [range, now])
+
   const sortedBody = [...bodyLog].sort((a, b) => a.date.localeCompare(b.date))
-  const weightData = sortedBody
-    .filter(b => b.weight_kg)
-    .map(b => ({ date: formatDate(b.date), weight: parseFloat(String(b.weight_kg)) }))
+  const weightData = filterPointsInRange(
+    sortedBody
+      .filter(b => b.weight_kg)
+      .map(b => ({ date: b.date, weight: Number.parseFloat(String(b.weight_kg)) })),
+    current,
+  ).map(point => ({ date: formatDate(point.date), weight: point.weight }))
 
-  const waistData = sortedBody
-    .filter(b => b.waist_cm)
-    .map(b => ({ date: formatDate(b.date), waist: parseFloat(String(b.waist_cm)) }))
+  const waistData = filterPointsInRange(
+    sortedBody
+      .filter(b => b.waist_cm)
+      .map(b => ({ date: b.date, waist: Number.parseFloat(String(b.waist_cm)) })),
+    current,
+  ).map(point => ({ date: formatDate(point.date), waist: point.waist }))
 
-  const latestWeight = weightData.length ? weightData[weightData.length - 1].weight : null
-  const startWeight = weightData.length ? weightData[0].weight : null
-  const weightDelta = latestWeight != null && startWeight != null ? (latestWeight - startWeight).toFixed(1) : null
+  const strengthData = filterPointsInRange(strengthRaw, current)
+    .map(point => ({ date: formatDate(point.date), weight: point.weight }))
 
   const handleExerciseChange = async (exId: string) => {
     setSelectedExId(exId)
-    if (!exId) { setStrengthData([]); return }
+    if (!exId) { setStrengthRaw([]); return }
     setLoadingStrength(true)
     try {
       const data = await fetchStrengthHistory(exId)
-      setStrengthData(data.map(d => ({ date: formatDate(d.date), weight: d.weight_kg })))
+      setStrengthRaw(data.map(d => ({ date: d.date, weight: d.weight_kg })))
     } catch (e) {
       console.error(e)
     } finally {
@@ -69,10 +88,18 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
       <ScreenHeader title="Progress" subtitle="Your trends and training progress" onBack={onBack} />
 
       <div style={{ padding: '18px 20px 100px' }}>
+        <RangeToggle value={range} onChange={setRange} />
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 20 }}>
-          <StatCard label="Sessions" value={sessions.length} />
-          <StatCard label="Current weight" value={latestWeight != null ? `${latestWeight}kg` : '—'} />
-          <StatCard label="Change" value={weightDelta != null ? `${Number(weightDelta) > 0 ? '+' : ''}${weightDelta}kg` : '—'} highlight={weightDelta != null && Number(weightDelta) < 0} />
+          <StatCard label="Sessions" value={stats.sessionCount} footer={stats.sessionFooter} positive={stats.sessionDelta != null && stats.sessionDelta > 0} />
+          <StatCard label="Current weight" value={stats.latestWeight != null ? `${stats.latestWeight}kg` : '—'} footer={stats.currentWeightFooter} />
+          <StatCard
+            label="Change"
+            value={stats.weightChange != null ? `${stats.weightChange > 0 ? '+' : ''}${stats.weightChange}kg` : '—'}
+            highlight={stats.weightChange != null && stats.weightChange < 0}
+            footer={stats.weightFooter}
+            positive={stats.weightChange != null && stats.weightChange < 0}
+          />
         </div>
 
         <Card>
@@ -97,16 +124,28 @@ export default function Progress({ sessions, bodyLog, exercises, onBack, onCheck
             <Empty text="Log a few sessions to see strength progression here." />
           ) : (
             <>
-              <select
-                value={selectedExId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleExerciseChange(e.target.value)}
-                style={{ ...inputStyle, fontSize: 13, marginBottom: 12 }}
-              >
-                <option value="">Select an exercise…</option>
-                {loggedExercises.map(e => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
+              <label style={{
+                ...inputStyle,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 12,
+                padding: '0 12px',
+                borderColor: selectedExId ? theme.colors.brand : theme.colors.line,
+              }}>
+                <Dumbbell size={16} color={theme.colors.brand} />
+                <select
+                  value={selectedExId}
+                  aria-label="Select an exercise"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleExerciseChange(e.target.value)}
+                  style={{ flex: 1, border: 'none', background: 'transparent', padding: '12px 0', fontSize: 13, color: theme.colors.text, outline: 'none' }}
+                >
+                  <option value="">Select an exercise…</option>
+                  {loggedExercises.map(e => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+              </label>
               {loadingStrength && <div style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 12, padding: 16 }}>Loading…</div>}
               {!loadingStrength && strengthData.length >= 2 && (
                 <Chart data={strengthData} dataKey="weight" color="#22B573" unit="kg" />
@@ -141,13 +180,57 @@ interface StatCardProps {
   label: string
   value: string | number
   highlight?: boolean
+  footer?: string | null
+  positive?: boolean
 }
 
-function StatCard({ label, value, highlight }: Readonly<StatCardProps>) {
+function StatCard({ label, value, highlight, footer, positive }: Readonly<StatCardProps>) {
   return (
-    <div style={{ ...cardStyle, padding: '12px 8px', textAlign: 'center' }}>
+    <div style={{ ...cardStyle, padding: '12px 8px 10px', textAlign: 'center' }}>
       <div style={{ fontFamily: theme.font.display, fontSize: 17, fontWeight: 800, color: highlight ? '#22B573' : theme.colors.text }}>{value}</div>
       <div style={{ fontSize: 10, color: theme.colors.muted, marginTop: 3 }}>{label}</div>
+      {footer && (
+        <div style={{ fontSize: 10, fontWeight: 700, color: positive ? '#22B573' : theme.colors.muted, marginTop: 8 }}>
+          {footer}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RangeToggle({ value, onChange }: Readonly<{ value: ProgressRange; onChange: (range: ProgressRange) => void }>) {
+  const options: Array<{ id: ProgressRange; label: string }> = [
+    { id: '7d', label: '7D' },
+    { id: '30d', label: '30D' },
+    { id: 'all', label: 'All' },
+  ]
+  return (
+    <div style={{ ...cardStyle, display: 'flex', padding: 4, marginBottom: 14 }}>
+      {options.map(option => {
+        const active = value === option.id
+        return (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(option.id)}
+            style={{
+              flex: 1,
+              border: 'none',
+              borderRadius: 12,
+              padding: '8px 0',
+              background: active ? theme.colors.brand : 'transparent',
+              color: active ? theme.colors.white : theme.colors.muted,
+              fontFamily: theme.font.display,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -25,4 +25,21 @@ describe('Progress', () => {
     expect(html).toContain('border:1px solid #E7EAF0')
     expect(html).toContain('Body weight')
   })
+
+  it('defaults to 30 days and shows range controls', () => {
+    const html = renderToStaticMarkup(
+      <Progress
+        sessions={[]}
+        bodyLog={[]}
+        exercises={[]}
+        onBack={() => undefined}
+        onCheckinSaved={async () => undefined}
+      />,
+    )
+
+    expect(html).toContain('>7D<')
+    expect(html).toContain('>30D<')
+    expect(html).toContain('>All<')
+    expect(html).toContain('aria-pressed="true"')
+  })
 })
