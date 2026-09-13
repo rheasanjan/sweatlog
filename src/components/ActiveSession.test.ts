@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildResumedSessionExercises, initialSessionStartMs, mergeSessionExercises } from './ActiveSession'
+import { buildResumedSessionExercises, mergeSessionExercises } from './ActiveSession'
 import type { Activity, SessionExercise, WorkoutDayExercise } from '../types'
 
 vi.mock('../lib/supabase', () => ({
@@ -112,18 +112,6 @@ describe('buildResumedSessionExercises', () => {
       repeat: '1',
       done: true,
     })
-  })
-})
-
-describe('initialSessionStartMs', () => {
-  it('uses the persisted start time when resuming an activity', () => {
-    expect(initialSessionStartMs(activity, Date.parse('2026-08-17T09:30:00.000Z')))
-      .toBe(Date.parse('2026-08-17T08:00:00.000Z'))
-  })
-
-  it('uses the current time for a new activity', () => {
-    const now = Date.parse('2026-08-17T09:30:00.000Z')
-    expect(initialSessionStartMs(null, now)).toBe(now)
   })
 })
 

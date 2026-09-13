@@ -5,7 +5,7 @@ import { sessionExercisesToRows, countLoggedSets, emptySet } from '../lib/sessio
 import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, addExerciseToWorkoutDay, updateSession } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
 import { theme } from '../styles/theme'
-import { cardStyle, primaryButtonStyle } from '../styles/ui'
+import { cardStyle, primaryButtonStyle, inputStyle, labelStyle } from '../styles/ui'
 import type {
   WorkoutDay,
   WorkoutDayExercise,
@@ -114,10 +114,6 @@ export function buildResumedSessionExercises(activity: Activity, dayExercises: W
   })
 }
 
-export function initialSessionStartMs(resumeActivity: Activity | null | undefined, now = Date.now()): number {
-  return resumeActivity ? new Date(resumeActivity.started_at).getTime() : now
-}
-
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export interface ActiveSessionProps {
@@ -138,7 +134,6 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   const color = workoutDay.color
   const initialLogDate = logDate || (resumeActivity ? new Date(resumeActivity.started_at) : new Date())
   const logDateKey = toDateInputValue(initialLogDate)
-  const startRef = useRef(initialSessionStartMs(resumeActivity))
   const sessionIdRef = useRef<string | null>(resumeActivity?.id ?? null)
   const startedAtRef = useRef<string | null>(resumeActivity?.started_at ?? null)
   const pendingSaveRef = useRef<SessionExercise[] | null>(null)
@@ -147,7 +142,9 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
   sessionsRef.current = sessions
 
   const [logDateStr, setLogDateStr] = useState(logDateKey)
-  const isBackdated = logDateStr !== toDateInputValue(new Date())
+  const [durationMins, setDurationMins] = useState(
+    resumeActivity?.duration_mins != null ? String(resumeActivity.duration_mins) : '',
+  )
 
   const logDateForHistory = new Date(`${logDateKey}T12:00:00`)
 
@@ -376,14 +373,15 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     onBack()
   }
 
+  const durationValid = (() => {
+    const n = Number(durationMins)
+    return durationMins.trim() !== '' && Number.isFinite(n) && n > 0
+  })()
+
   const handleFinish = async () => {
-    if (!sessionIdRef.current || saving) return
+    if (!sessionIdRef.current || saving || !durationValid) return
     setSaving(true)
     try {
-      const durationMins = isBackdated
-        ? 45
-        : Math.max(1, Math.round((Date.now() - startRef.current) / 60000))
-
       const allSets = sessionExercisesToRows(sessionExercises)
 
       await upsertSets(sessionIdRef.current, allSets)
@@ -407,7 +405,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
       }
 
       const finished = await finishSession(sessionIdRef.current, {
-        durationMins,
+        durationMins: Number(durationMins),
         note: '',
         startedAt: startedAtRef.current ?? undefined,
       })
@@ -571,11 +569,25 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
           <Plus size={16} /> Add Exercise
         </button>
 
+        <div style={{ ...cardStyle, padding: 14, marginTop: 16 }}>
+          <label style={labelStyle} htmlFor="session-duration">Duration (min)</label>
+          <input
+            id="session-duration"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={durationMins}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDurationMins(e.target.value)}
+            placeholder="e.g. 45"
+            style={inputStyle}
+          />
+        </div>
+
         <button
           type="button"
           onClick={handleFinish}
-          disabled={saving}
-          style={{ ...primaryButtonStyle, marginTop: 12, background: saving ? '#9CA3AF' : primaryButtonStyle.background, cursor: saving ? 'default' : 'pointer' }}
+          disabled={saving || !durationValid}
+          style={{ ...primaryButtonStyle, marginTop: 12, background: saving || !durationValid ? '#9CA3AF' : primaryButtonStyle.background, cursor: saving || !durationValid ? 'default' : 'pointer' }}
         >
           {saving ? 'Saving…' : 'Finish Session'}
         </button>
