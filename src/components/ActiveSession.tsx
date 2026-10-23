@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ChevronLeft, Check, Plus, Clock, Trash2 } from 'lucide-react'
+import { ChevronLeft, Check, Plus, Clock, Trash2, GripVertical } from 'lucide-react'
 import { DEFAULT_SETS, DEFAULT_REPS, isTimed, toDateInputValue, dateAtNoon, getPreviousWeekSession, bestSetForExercise, formatBestSetLabel, setRepeatCount } from '../lib/program'
 import { sessionExercisesToRows, countLoggedSets, emptySet } from '../lib/sessionSets'
 import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, addExerciseToWorkoutDay, updateSession } from '../lib/supabase'
@@ -246,6 +246,54 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     return () => clearTimeout(t)
   }, [restTimer])
 
+  const [draggingExerciseId, setDraggingExerciseId] = useState<string | null>(null)
+  const exerciseItemRefs = useRef(new Map<string, HTMLDivElement>())
+  const sessionExercisesRef = useRef(sessionExercises)
+  sessionExercisesRef.current = sessionExercises
+
+  const handleExerciseDragStart = (e: React.PointerEvent, exerciseId: string) => {
+    e.preventDefault()
+    setDraggingExerciseId(exerciseId)
+  }
+
+  useEffect(() => {
+    if (!draggingExerciseId) return
+
+    const handleMove = (e: PointerEvent) => {
+      const list = sessionExercisesRef.current
+      const currentIndex = list.findIndex(ex => ex.exerciseId === draggingExerciseId)
+      if (currentIndex === -1) return
+
+      const others = list.filter((_, i) => i !== currentIndex)
+      let insertAt = others.length
+      for (let i = 0; i < others.length; i++) {
+        const el = exerciseItemRefs.current.get(others[i].exerciseId)
+        if (!el) continue
+        const rect = el.getBoundingClientRect()
+        const midpoint = rect.top + rect.height / 2
+        if (e.clientY < midpoint) {
+          insertAt = i
+          break
+        }
+      }
+
+      const next = others.slice()
+      next.splice(insertAt, 0, list[currentIndex])
+      if (next.some((ex, i) => ex.exerciseId !== list[i]?.exerciseId)) {
+        setSessionExercises(next)
+      }
+    }
+
+    const handleUp = () => setDraggingExerciseId(null)
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+  }, [draggingExerciseId])
+
   const updateSet = (exIdx: number, setIdx: number, field: keyof SetInput, value: string | boolean) => {
     setSessionExercises(prev => {
       const next = [...prev]
@@ -475,8 +523,23 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
             const displayName = ex.altUsed && ex.altName ? ex.altName : ex.exerciseName
             const timed = isTimed(ex.targetReps)
             return (
-              <div key={exIdx} style={{ ...cardStyle, padding: '14px' }}>
+              <div
+                key={ex.exerciseId || exIdx}
+                ref={el => {
+                  if (el) exerciseItemRefs.current.set(ex.exerciseId, el)
+                  else exerciseItemRefs.current.delete(ex.exerciseId)
+                }}
+                style={{ ...cardStyle, padding: '14px', opacity: draggingExerciseId === ex.exerciseId ? 0.5 : 1 }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3, gap: 8 }}>
+                  <button
+                    type="button"
+                    aria-label={`Drag to reorder ${displayName}`}
+                    onPointerDown={e => handleExerciseDragStart(e, ex.exerciseId)}
+                    style={{ background: 'transparent', border: 'none', padding: '2px 6px 2px 0', margin: '-2px 0', cursor: 'grab', touchAction: 'none', display: 'flex', color: '#CBD5E1', flexShrink: 0 }}
+                  >
+                    <GripVertical size={16} />
+                  </button>
                   <div style={{ fontFamily: theme.font.display, fontWeight: 800, fontSize: 15, color: theme.colors.text, flex: 1 }}>{displayName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {ex.altName && (
