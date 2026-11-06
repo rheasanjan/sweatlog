@@ -88,12 +88,6 @@ export default function App() {
     setExercises(e || [])
   }
 
-  const refreshDayPlan = async () => {
-    if (!activeWorkoutDay) return
-    const dayExercises = await fetchWorkoutDayExercises(activeWorkoutDay.id)
-    setActiveDayExercises(dayExercises)
-  }
-
   const startSession = async (workoutDay: WorkoutDay, logDate: Date = new Date(), returnScreen: EditReturnScreen = 'picker') => {
     const dayExercises = await fetchWorkoutDayExercises(workoutDay.id)
     setResumeActivity(null)
@@ -248,7 +242,6 @@ export default function App() {
           onBack={handleSessionBack}
           onFinished={handleSessionFinished}
           onExerciseAdded={refreshExercises}
-          onPlanChanged={refreshDayPlan}
         />
       )}
       {screen === 'summary' && finishedSession && (

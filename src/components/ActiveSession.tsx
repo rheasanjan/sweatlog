@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, Check, Plus, Clock, Trash2, GripVertical } from 'lucide-react'
 import { DEFAULT_SETS, DEFAULT_REPS, isTimed, toDateInputValue, dateAtNoon, getPreviousWeekSession, bestSetForExercise, formatBestSetLabel, setRepeatCount } from '../lib/program'
 import { sessionExercisesToRows, countLoggedSets, emptySet } from '../lib/sessionSets'
-import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, addExerciseToWorkoutDay, updateSession } from '../lib/supabase'
+import { createSession, finishSession, abandonSession, upsertSets, checkAndSavePR, addCustomExercise, updateSession } from '../lib/supabase'
 import ExercisePickerModal from './ExercisePickerModal'
 import { theme } from '../styles/theme'
 import { cardStyle, primaryButtonStyle, inputStyle, labelStyle } from '../styles/ui'
@@ -127,10 +127,9 @@ export interface ActiveSessionProps {
   onBack: () => void
   onFinished: (session: FinishedSession) => void
   onExerciseAdded?: () => Promise<void>
-  onPlanChanged?: () => Promise<void>
 }
 
-export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, resumeActivity, onBack, onFinished, onExerciseAdded, onPlanChanged }: Readonly<ActiveSessionProps>) {
+export default function ActiveSession({ workoutDay, dayExercises, exercises, sessions, muscleGroups, logDate, resumeActivity, onBack, onFinished, onExerciseAdded }: Readonly<ActiveSessionProps>) {
   const color = workoutDay.color
   const initialLogDate = logDate || (resumeActivity ? new Date(resumeActivity.started_at) : new Date())
   const logDateKey = toDateInputValue(initialLogDate)
@@ -364,20 +363,7 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
     })
   }
 
-  const addToPlan = async (exerciseId: string, targetSets: number, targetReps: string) => {
-    try {
-      await addExerciseToWorkoutDay(workoutDay.id, exerciseId, { targetSets, targetReps })
-      await onPlanChanged?.()
-    } catch (err: unknown) {
-      const error = err as { code?: string; message?: string }
-      if (error.code !== '23505' && !error.message?.includes('unique')) {
-        alert('Could not add to plan: ' + (error.message || String(err)))
-      }
-    }
-  }
-
   const handleSelectExisting = async (ex: Exercise, { sets: numSets, targetReps }: { sets: number; targetReps: string }) => {
-    await addToPlan(ex.id, numSets, targetReps)
     appendExercise(ex.id, ex.name, ex.alt_name, numSets, targetReps)
     setShowAddExercise(false)
   }
@@ -388,7 +374,6 @@ export default function ActiveSession({ workoutDay, dayExercises, exercises, ses
       altName,
       muscleGroupIds: muscleGroupId ? [muscleGroupId] : [],
     })
-    await addToPlan(saved.id, numSets, '8–12')
     await onExerciseAdded?.()
     appendExercise(saved.id, saved.name, saved.alt_name, numSets, '8–12')
     setShowAddExercise(false)
